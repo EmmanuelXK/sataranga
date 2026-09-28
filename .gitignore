@@ -1,0 +1,14 @@
+node_modules
+dist
+.output
+.vercel
+.nitro
+screenshots
+artifacts
+*.log
+.DS_Store
+.grok/*
+!.grok/app-env.json
+.pglite
+__pycache__
+*.pyc

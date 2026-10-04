@@ -1,16 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { Castle, Crown, Lock, Store, Swords, Users } from "lucide-react";
+import { Castle, Crown, Dices, Lock, Swords, UserRound, Users } from "lucide-react";
 import { ENGINES, type Color, type Level } from "@/game/engine";
 import { PieceGlyph } from "@/components/pieces";
 import { roomCode, MODE_CLOCKS, type Launch } from "@/game/launch";
+import { readPieceSet, writePieceSet, type PieceSet } from "@/game/chaturaji";
 import { loadCareer, saveName } from "@/game/career";
-import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, rankTitle, todayKey, type Profile } from "@/game/profile";
+import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, rankProgress, todayKey, type Profile } from "@/game/profile";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 
-type Tab = "war" | "yuddha" | "heads" | "friends" | "shop";
-type Mode = "ashta" | "sena" | "pro";
+type Tab = "war" | "yuddha" | "heads" | "friends" | "profile";
+type Mode = "ashta" | "chaturaja" | "pro";
 
 const SEEN = "yuddha-seen-v1";
 
@@ -62,7 +64,7 @@ function Welcome({ onPlay }: { onPlay: () => void }) {
         <button type="button" className="yd-play" onClick={onPlay}>
           <Swords strokeWidth={2.25} /> Play now · no account
         </button>
-        <p className="yd-fine">Play as a guest. Your war room stays on this device.</p>
+        <p className="yd-fine">Guest play keeps the rating on this phone.</p>
         <SignedOut>
           <Link to="/login" className="login-quiet">
             Sign in · Google or X
@@ -85,6 +87,9 @@ function Camp({
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
   const [lane, setLane] = useState<"ranked" | "casual" | "friend">("ranked");
   const [mode, setMode] = useState<Mode>("ashta");
+  const [dice, setDice] = useState(true);
+  const [pieceSet, setPieceSet] = useState<PieceSet>(readPieceSet);
+  const [hands, setHands] = useState<"bots" | "table">("bots");
   const [human, setHuman] = useState<Color>(() => (typeof localStorage !== "undefined" && localStorage.getItem("yuddha-side-v1") === "b" ? "b" : "w"));
   const [join, setJoin] = useState("");
   useEffect(() => {
@@ -97,7 +102,8 @@ function Camp({
     };
   }, []);
   const name = loadCareer().name;
-  const title = rankTitle(profile.rating);
+  const rank = rankProgress(profile.rating);
+  const title = rank.title;
   const proOpen = profile.rating >= 450 || profile.heads >= 4;
   const nextHead = Math.min(10, profile.heads + 1);
   const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
@@ -108,8 +114,12 @@ function Camp({
       return;
     }
     if (mode === "pro" && !proOpen) return;
+    if (mode === "chaturaja") {
+      onPlay({ kind: "chaturaja", dice, hands });
+      return;
+    }
     const level: Level =
-      mode === "pro" ? 4 : mode === "sena" ? 3 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4;
+      mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4;
     localStorage.setItem("yuddha-side-v1", human === "w" ? "b" : "w");
     onPlay({
       kind: "solo",
@@ -132,13 +142,17 @@ function Camp({
                 <h1>War Room</h1>
               </div>
               <div className="yd-head-side">
+                <span className="rating-pill">
+                  <b>{profile.rating}</b>
+                  <em>{title}</em>
+                </span>
                 <span className="coins">
                   <i />
                   {profile.coins.toLocaleString()}
                 </span>
-                <span className="avatar" aria-hidden="true">
-                  <img src="/art/lanka.png" alt="" />
-                </span>
+                <button type="button" className="avatar" aria-label="Profile" onClick={() => setTab("profile")}>
+                  <Face />
+                </button>
               </div>
             </header>
             <section className="hero-card">
@@ -158,10 +172,19 @@ function Camp({
               <article className="stat">
                 <p className="yd-kicker">Rank</p>
                 <div className="rank-row">
-                  <i className="rank-ring" style={{ ["--p" as string]: `${Math.min(100, Math.round(((profile.rating - 100) / 350) * 100))}%` }} />
+                  <i
+                    className="rank-ring"
+                    style={{
+                      ["--p" as string]: `${
+                        rank.next
+                          ? Math.min(100, Math.round(((profile.rating - rank.floor) / (rank.ceil - rank.floor)) * 100))
+                          : 100
+                      }%`,
+                    }}
+                  />
                   <div>
-                    <h2>{title}</h2>
-                    <p>{Math.min(profile.rating, 450)} / 450 to Senapati</p>
+                    <h2>{profile.rating}</h2>
+                    <p>{rank.next ? `${title} · ${rank.ceil - profile.rating} to ${rank.next}` : title}</p>
                   </div>
                 </div>
               </article>
@@ -216,6 +239,10 @@ function Camp({
                 <h1>Play</h1>
               </div>
             </header>
+            <button type="button" className="yd-play pass-start" onClick={() => onPlay({ kind: "pvp" })}>
+              <Users strokeWidth={2.25} /> Pass & play
+            </button>
+            <p className="yd-fine">Same phone. The board flips after every move.</p>
             <div className="seg3" role="tablist">
               {(
                 [
@@ -241,13 +268,13 @@ function Camp({
                   onClick={() => setMode("ashta")}
                 />
                 <ModeCard
-                  on={mode === "sena"}
-                  title="Maha Senaa"
-                  copy="The great army. Longer battles."
+                  on={mode === "chaturaja"}
+                  title="Chathuraja"
+                  copy="Four kings. A die, or a free move."
                   tone="gold"
                   art="/art/sena.png"
-                  times={["5:00", "8:00"]}
-                  onClick={() => setMode("sena")}
+                  times={["4 kings", dice ? "Dice" : "Free"]}
+                  onClick={() => setMode("chaturaja")}
                 />
                 <ModeCard
                   on={mode === "pro"}
@@ -259,26 +286,86 @@ function Camp({
                   locked={!proOpen}
                   onClick={() => proOpen && setMode("pro")}
                 />
+                {mode === "chaturaja" ? (
+                  <>
+                    <div className="side-h">
+                      <p className="field-label">The die</p>
+                      <p className="field-note">Raja, Gaja, Ashva, Yathra</p>
+                    </div>
+                    <div className="pace-row">
+                      <button type="button" className={clsx("pace", dice && "on coral")} onClick={() => setDice(true)}>
+                        <Dices /> Dice on
+                      </button>
+                      <button type="button" className={clsx("pace", !dice && "on green")} onClick={() => setDice(false)}>
+                        Free move
+                      </button>
+                    </div>
+                    <div className="pace-row">
+                      <button
+                        type="button"
+                        className={clsx("pace", pieceSet === "retro" && "on coral")}
+                        onClick={() => {
+                          setPieceSet("retro");
+                          writePieceSet("retro");
+                        }}
+                      >
+                        Retro
+                      </button>
+                      <button
+                        type="button"
+                        className={clsx("pace", pieceSet === "neo" && "on green")}
+                        onClick={() => {
+                          setPieceSet("neo");
+                          writePieceSet("neo");
+                        }}
+                      >
+                        Neo
+                      </button>
+                    </div>
+                    <div className="pace-row">
+                      <button type="button" className={clsx("pace", hands === "bots" && "on coral")} onClick={() => setHands("bots")}>
+                        You vs three
+                      </button>
+                      <button type="button" className={clsx("pace", hands === "table" && "on green")} onClick={() => setHands("table")}>
+                        Four hands
+                      </button>
+                    </div>
+                    <button type="button" className="yd-battle" onClick={battle}>
+                      <Swords strokeWidth={2.25} /> Enter Chathuraja
+                    </button>
+                    <p className="yd-fine">RETRO CHATHURAJA. Same shapes, vintage enamel. NEO stays locked.</p>
+                  </>
+                ) : (
+                  <>
                 <div className="side-h">
                   <p className="field-label">Your side</p>
                   <p className="field-note">Auto-alternates each battle</p>
                 </div>
                 <div className="pace-row">
                   <button type="button" className={clsx("pace", human === "w" && "on coral")} onClick={() => setHuman("w")}>
-                    <Hare /> Hare · {mode === "sena" ? "5:00" : mode === "pro" ? "10:00" : "3:00"}
+                    <Hare /> Hare · {mode === "pro" ? "10:00" : "3:00"}
                   </button>
                   <button type="button" className={clsx("pace", human === "b" && "on green")} onClick={() => setHuman("b")}>
-                    <Tortoise /> Tortoise · {mode === "sena" ? "8:00" : mode === "pro" ? "15:00" : "5:00"}
+                    <Tortoise /> Tortoise · {mode === "pro" ? "15:00" : "5:00"}
                   </button>
                 </div>
                 <button type="button" className="yd-battle" onClick={battle} disabled={mode === "pro" && !proOpen}>
                   <Swords strokeWidth={2.25} /> Battle as {human === "w" ? "Hare" : "Tortoise"}
                 </button>
                 <p className="yd-fine">
-                  {lane === "ranked"
-                    ? `${ENGINES[mode === "pro" ? 4 : mode === "sena" ? 3 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4].name} plays the other side. Your rating stays on this device.`
-                    : "Casual games are not rated."}
+                  {lane === "ranked" ? (
+                    <>
+                      {ENGINES[mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4].name}{" "}
+                      plays the other side. Win +18. Loss −12.{" "}
+                      <SignedIn>Saved to your account.</SignedIn>
+                      <SignedOut>Sign in to keep it.</SignedOut>
+                    </>
+                  ) : (
+                    "Casual games are not rated."
+                  )}
                 </p>
+                  </>
+                )}
               </>
             ) : (
               <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} />
@@ -344,9 +431,15 @@ function Camp({
           </>
         )}
 
-        {tab === "shop" && (
+        {tab === "profile" && (
           <>
-            <AccountBar />
+            <header className="yd-head">
+              <div>
+                <p className="yd-kicker">Account</p>
+                <h1>Profile</h1>
+              </div>
+            </header>
+            <ProfileCard profile={profile} />
             <Armory name={name} onName={(v) => saveName(v)} />
           </>
         )}
@@ -356,28 +449,65 @@ function Camp({
         <TabBtn id="yuddha" tab={tab} setTab={setTab} icon={<Swords strokeWidth={1.75} />} label="Play" />
         <TabBtn id="heads" tab={tab} setTab={setTab} icon={<Crown strokeWidth={1.75} />} label="Ten Heads" />
         <TabBtn id="friends" tab={tab} setTab={setTab} icon={<Users strokeWidth={1.75} />} label="Friends" />
-        <TabBtn id="shop" tab={tab} setTab={setTab} icon={<Store strokeWidth={1.75} />} label="Shop" />
+        <TabBtn id="profile" tab={tab} setTab={setTab} icon={<UserRound strokeWidth={1.75} />} label="Profile" />
       </nav>
     </main>
   );
 }
 
-function AccountBar() {
+function Face() {
+  const user = useCurrentUser();
+  if (user?.profileImageUrl) return <img src={user.profileImageUrl} alt="" />;
+  return <img src="/art/lanka.png" alt="" />;
+}
+
+function ProfileCard({ profile }: { profile: Profile }) {
+  const user = useCurrentUser();
+  const rank = rankProgress(profile.rating);
+  const name = user?.displayName || loadCareer().name || "Guest";
+  const detail = user ? user.primaryEmail || "Signed in" : "Guest on this phone";
   return (
-    <section className="panel account-panel">
+    <section className="profile-card">
+      <div className="profile-top">
+        <span className="profile-face">
+          <Face />
+        </span>
+        <div>
+          <h2>{name}</h2>
+          {detail ? <p>{detail}</p> : <p>Guest on this phone</p>}
+        </div>
+      </div>
+      <div className="profile-rating">
+        <b>{profile.rating}</b>
+        <em>{rank.title}</em>
+      </div>
+      <p className="profile-next">
+        {rank.next ? `${rank.ceil - profile.rating} points to ${rank.next}` : "Highest rank on the board."}
+      </p>
+      <div className="record-row">
+        <span>
+          <b>{profile.wins}</b>
+          <small>Wins</small>
+        </span>
+        <span>
+          <b>{profile.losses}</b>
+          <small>Losses</small>
+        </span>
+        <span>
+          <b>{profile.draws}</b>
+          <small>Draws</small>
+        </span>
+      </div>
+      <p className="profile-note">Ranked games only move the number. Win +18. Loss −12.</p>
       <SignedIn>
-        <UserButton />
+        <div className="login-user">
+          <UserButton />
+        </div>
       </SignedIn>
       <SignedOut>
-        <div className="panel-h">
-          <div>
-            <h2>Guest</h2>
-            <p>Sign in and your rank follows you.</p>
-          </div>
-          <Link to="/login" className="quiet">
-            Sign in
-          </Link>
-        </div>
+        <Link to="/login" className="yd-play profile-signin">
+          Sign in · keep this rating
+        </Link>
       </SignedOut>
     </section>
   );
@@ -509,7 +639,7 @@ function Armory({ name, onName }: { name: string; onName: (v: string) => void })
           <h1>Your pieces</h1>
         </div>
       </header>
-      <p className="yd-copy">The six that take the field. Nothing here is for sale.</p>
+      <p className="yd-copy">Maha-Sena (මහසේනා), the sixteen pieces. Eight Hewa (හේවා) make a Sena (සේනා).</p>
       <label className="yd-field">
         Name on the board
         <input defaultValue={name} maxLength={18} onBlur={(e) => onName(e.target.value)} />

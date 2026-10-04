@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { clsx } from "clsx";
 import {
@@ -40,9 +40,11 @@ import {
 } from "@/game/engine";
 import { playSound, unlockAudio } from "@/game/sound";
 import { loadCareer, noteSolo } from "@/game/career";
-import { noteBattle } from "@/game/profile";
+import { loadProfile, noteBattle } from "@/game/profile";
 import { PACE_MS } from "@/game/launch";
+import { boardTheme, BOARDS, readBoard, writeBoard, type BoardId } from "@/game/boards";
 import { PieceGlyph } from "@/components/pieces";
+import { Board3D, fightMs, type Strike } from "@/components/Board3D";
 import { P2PRoom } from "@/lib/multiplayer";
 import type { Launch } from "@/game/launch";
 
@@ -165,9 +167,9 @@ function fmtLead(quarters: number): string {
 }
 
 function startClocks(launch: Launch): Record<Color, number> {
-  if (launch.kind !== "resume" && launch.clocks) return { w: launch.clocks.w, b: launch.clocks.b };
-  const pace = launch.kind === "resume" ? undefined : launch.pace;
-  const ms = pace ? PACE_MS[pace] : 0;
+  if (launch.kind === "resume" || launch.kind === "chaturaja") return { w: 0, b: 0 };
+  if (launch.clocks) return { w: launch.clocks.w, b: launch.clocks.b };
+  const ms = launch.pace ? PACE_MS[launch.pace] : 0;
   return { w: ms, b: ms };
 }
 
@@ -176,9 +178,10 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const [ply, setPly] = useState(0);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
-  const [flight, setFlight] = useState<{ from: number; to: number; color: Color; type: PieceType } | null>(
-    null,
-  );
+  const [flight, setFlight] = useState<Strike | null>(null);
+  const [mode3d, setMode3d] = useState(false);
+  const mode3dRef = useRef(false);
+  const [boardId, setBoardId] = useState<BoardId>("brown");
   const [shown, setShown] = useState<Color>("w");
   const [thinking, setThinking] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -189,7 +192,10 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const [liveStatus, setLiveStatus] = useState<"connecting" | "wait" | "play" | "failed">("connecting");
   const [liveColor, setLiveColor] = useState<Color>("w");
   const [copied, setCopied] = useState(false);
+  const [ratedLine, setRatedLine] = useState<string | null>(null);
   const [landSq, setLandSq] = useState<number | null>(null);
+  const passAfter = useRef(false);
+  const [handed, setHanded] = useState(false);
   const baseClock = startClocks(launch);
   const timed = baseClock.w > 0 || baseClock.b > 0;
   const [clock, setClock] = useState<Record<Color, number>>(baseClock);
@@ -265,14 +271,25 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     noteSolo(game.level, ENGINES[game.level].name, result);
     const rated = launch.kind === "solo" && !!launch.rated;
     const head = launch.kind === "solo" ? launch.head : undefined;
-    noteBattle({ result, rated, head });
+    const before = loadProfile().rating;
+    const next = noteBattle({ result, rated, head });
+    if (rated) {
+      const delta = next.rating - before;
+      const mark = delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "±0";
+      setRatedLine(`Rating ${next.rating}  ${mark}`);
+    } else {
+      setRatedLine(null);
+    }
   }, [endKey, end, game.mode, game.moves.length, game.human, game.level, launch]);
 
-  const logical: Color = (() => {
-    if (game.mode === "solo") return game.bottom ?? game.human;
-    if (game.bottom) return game.bottom;
-    return view.turn;
-  })();
+  const logical: Color = game.mode === "solo" ? (game.bottom ?? game.human) : game.mode === "pvp" ? view.turn : game.bottom ?? view.turn;
+
+  useEffect(() => {
+    const on = localStorage.getItem("sataranga-3d") === "1";
+    mode3dRef.current = on;
+    setMode3d(on);
+    setBoardId(readBoard());
+  }, []);
 
   useEffect(() => {
     if (flight) return;
@@ -281,7 +298,14 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 
   useEffect(() => {
     if (!flight) return;
-    const id = window.setTimeout(() => setFlight(null), 200);
+    const ms = mode3dRef.current ? fightMs(flight.type) : 200;
+    const id = window.setTimeout(() => {
+      setFlight(null);
+      if (passAfter.current) {
+        passAfter.current = false;
+        setHanded(true);
+      }
+    }, ms);
     return () => window.clearTimeout(id);
   }, [flight]);
 
@@ -296,6 +320,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       setThinking(false);
       return;
     }
+    if (flight) return;
     setThinking(true);
     let cancel = false;
     const worker = new Worker(new URL("../game/ai.worker.ts", import.meta.url), { type: "module" });
@@ -323,25 +348,39 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     };
     // commitMove reads the latest sound flag; the searched position is this snapshot
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiTurn, game.moves, game.level, game.human, ply]);
+  }, [aiTurn, flight, game.moves, game.level, game.human, ply]);
 
   function commitMove(move: Move, fromPos: Position) {
     if (busy.current) return;
     busy.current = true;
     const reduce =
       typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!reduce) setFlight({ from: move.from, to: move.to, color: move.color, type: move.piece });
-    else setFlight(null);
+    const ms = mode3dRef.current ? fightMs(move.piece) : 200;
+    const next = applyMove(fromPos, move);
+    const after = outcome(next);
+    const pass = game.mode === "pvp" && after.kind === "ongoing";
+    passAfter.current = pass && !reduce;
+    if (!reduce) {
+      setFlight({
+        from: move.from,
+        to: move.to,
+        color: move.color,
+        type: move.piece,
+        captured: move.captured,
+        started: performance.now(),
+      });
+    } else {
+      setFlight(null);
+      if (pass) setHanded(true);
+    }
     window.setTimeout(() => {
       busy.current = false;
-    }, reduce ? 0 : 200);
+    }, reduce ? 0 : ms);
     setSelected(null);
     setLandSq(move.to);
     setGame((g) => ({ ...g, moves: [...g.moves, move], resigned: null }));
     setPly((p) => p + 1);
     if (game.sound) {
-      const next = applyMove(fromPos, move);
-      const after = outcome(next);
       const kind =
         after.kind !== "ongoing" ? "end" : inCheck(next) ? "check" : move.captured ? "capture" : "move";
       playSound(kind);
@@ -429,6 +468,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     }
     if (!game.moves.length) return;
     setFlight(null);
+    passAfter.current = false;
+    setHanded(false);
     busy.current = false;
     setSelected(null);
     setOverOpen(false);
@@ -446,12 +487,15 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const resetRef = useRef<(broadcast: boolean) => void>(() => {});
   function newGame(broadcast = true) {
     setFlight(null);
+    passAfter.current = false;
+    setHanded(false);
     setSelected(null);
     setLandSq(null);
     setOverOpen(false);
     setConfirm(null);
     setPly(0);
     recorded.current = "";
+    setRatedLine(null);
     setClock(startClocks(launch));
     setGame((g) => ({ ...g, moves: [], resigned: null, flagged: null }));
     if (broadcast && game.mode === "live") liveRef.current?.send({ t: "ng" });
@@ -483,6 +527,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     ply === game.moves.length &&
     !thinking &&
     !flight &&
+    !handed &&
     !(game.mode === "solo" && view.turn !== game.human) &&
     !(game.mode === "live" && (liveStatus !== "play" || view.turn !== liveColor));
 
@@ -617,9 +662,26 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
                 setEditing(null);
               }}
             />
+            {mode3d ? (
+              <Board3D
+                board={view.board}
+                orientation={shown}
+                squares={boardTheme(boardId)}
+                selected={selected}
+                targets={targets}
+                last={last}
+                checkSq={checkSq}
+                flight={flight}
+                interactive={interactive}
+                turn={view.turn}
+                onSelect={setSelected}
+                onMove={playUser}
+              />
+            ) : (
             <Board
               board={view.board}
               orientation={shown}
+              squares={boardTheme(boardId)}
               selected={selected}
               targets={targets}
               last={last}
@@ -631,6 +693,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               onSelect={setSelected}
               onMove={playUser}
             />
+            )}
             <PlayerBar
               color={shown}
               name={game.names[shown]}
@@ -649,9 +712,16 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
                 setEditing(null);
               }}
             />
+            {handed && game.mode === "pvp" && end.kind === "ongoing" && (
+              <button type="button" className="pass-cover" onClick={() => setHanded(false)}>
+                <span>Pass the phone</span>
+                <strong>{game.names[view.turn]} to move</strong>
+                <em>Tap when you're ready</em>
+              </button>
+            )}
           </div>
 
-          <div className="toolbar">
+          <div className={clsx("toolbar", game.mode === "pvp" && "toolbar-pass")}>
             <button
               type="button"
               className="tool"
@@ -661,6 +731,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <Undo2 strokeWidth={1.75} />
               <span>Undo</span>
             </button>
+            {game.mode !== "pvp" && (
             <button
               type="button"
               className={clsx("tool", game.bottom && "tool-on")}
@@ -673,6 +744,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <ArrowLeftRight strokeWidth={1.75} />
               <span>Flip</span>
             </button>
+            )}
             <button
               type="button"
               className="tool"
@@ -695,7 +767,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             </button>
           </div>
 
-          <MoveStrip sans={sans} ply={ply} onPick={setPly} />
+          <MoveStrip sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
         </section>
 
         <aside className="side">
@@ -703,7 +775,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             <h2>Score</h2>
             <p>{end.kind === "ongoing" ? (view.turn === "w" ? "White to move" : "Black to move") : headline(end, game.names)}</p>
           </div>
-          <MoveList sans={sans} ply={ply} onPick={setPly} />
+          <MoveList sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
           <p className="side-note">
             Raja on d, Mantri on e. The elephant leaps two diagonals. Stalemate loses. A bare Raja loses unless it can
             bare back at once.
@@ -717,7 +789,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           : headline(end, game.names)}
       </p>
 
-      <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="Sataranga — old Ceylon chess. The same laws on every table.">
+      <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="Ashtapadha. Locked. Old Ceylon Chaturanga.">
         <ul className="rules">
           {(Object.keys(PIECE_META) as PieceType[]).map((type) => (
             <li key={type}>
@@ -733,11 +805,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           ))}
         </ul>
         <div className="rule-notes">
+          <p>One Hewa (හේවා). The eight Hewa are a Sena (සේනා). All sixteen pieces are the Maha-Sena (මහසේනා).</p>
           <p>Rajas start facing on the d-file. Mantris stand on e.</p>
           <p>You may not leave your own Raja in check.</p>
           <p>Checkmate wins. Stalemate is a loss for the player who cannot move.</p>
           <p>Bare Raja wins at once, unless the bare side can bare you on the next move — that is a draw.</p>
-          <p>Threefold repetition is a draw. There is no castling and no en passant.</p>
+          <p>Threefold repetition is a draw.</p>
+          <p>Ashtapadha. Locked. No castling, not even in two moves. No en passant.</p>
         </div>
       </Sheet>
 
@@ -787,7 +861,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <Segment
                 value={String(game.level)}
                 options={[
-                  ["1", "Padati"],
+                  ["1", "Hewa"],
                   ["2", "Ashva"],
                   ["3", "Gaja"],
                   ["4", "Raja"],
@@ -804,22 +878,59 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           </>
         )}
         {game.mode === "pvp" && (
-          <Field label="Board">
-            <Segment
-              value={game.bottom ? "lock" : "auto"}
-              options={[
-                ["auto", "Follow turn"],
-                ["lock", "Stay flipped"],
-              ]}
-              onChange={(value) =>
-                setGame((g) => ({
-                  ...g,
-                  bottom: value === "auto" ? null : (g.bottom ?? other(view.turn)),
-                }))
-              }
-            />
-          </Field>
+          <p className="side-note">Same phone. After a move the board flips, then you hand it over and tap to play.</p>
         )}
+        <Field label="View">
+          <Segment
+            value={mode3d ? "3d" : "flat"}
+            options={[
+              ["flat", "Flat"],
+              ["3d", "3D"],
+            ]}
+            onChange={(value) => {
+              const on = value === "3d";
+              mode3dRef.current = on;
+              setMode3d(on);
+              localStorage.setItem("sataranga-3d", on ? "1" : "0");
+            }}
+          />
+          {mode3d && (
+            <p className="side-note">
+              The elephant charges, the horse leaps, and the rook fires arrows then rolls in like a tank.
+            </p>
+          )}
+        </Field>
+        <Field label="Squares">
+          <div className="board-picks" role="radiogroup" aria-label="Board">
+            {BOARDS.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                role="radio"
+                aria-checked={boardId === b.id}
+                className={boardId === b.id ? "on" : undefined}
+                onClick={() => {
+                  setBoardId(b.id);
+                  writeBoard(b.id);
+                }}
+              >
+                <span className="board-chip" aria-hidden>
+                  <i style={{ background: b.light }} />
+                  <i style={{ background: b.dark }} />
+                  <i style={{ background: b.dark }} />
+                  <i style={{ background: b.light }} />
+                </span>
+                {b.name}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Rules">
+          <p className="side-note">Ashtapadha. Locked. Chaturanga. Chathuraja is a different game.</p>
+        </Field>
+        <Field label="Pieces">
+          <p className="side-note">NEO CEYLON. Locked. Raja, Mantri, Gaja, Ashva, Ratha, and Hewa.</p>
+        </Field>
         <button
           type="button"
           className="sound-row"
@@ -841,6 +952,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       >
         <p className="over-title">{headline(end, game.names)}</p>
         <p className="over-copy">{detail(end)}</p>
+        {ratedLine ? <p className="over-copy rating-result">{ratedLine}</p> : null}
         <div className="over-actions">
           <button type="button" className="btn primary" onClick={() => newGame()}>
             Rematch
@@ -929,22 +1041,29 @@ function PlayerBar({
           {role && <span className="role">{role}</span>}
           {check && <span className="check-tag">Check</span>}
           {thinking && <span className="think">Thinking</span>}
+          <div className="caps">
+            {captured.map((type, i) => (
+              <PieceGlyph key={type + i} type={type} color={other(color)} className="cap" />
+            ))}
+          </div>
           {lead > 0 && <span className="lead">{fmtLead(lead)}</span>}
           {time && <span className={clsx("clk", low && "clk-low")}>{time}</span>}
-        </div>
-        <div className="caps">
-          {captured.map((type, i) => (
-            <PieceGlyph key={type + i} type={type} color={other(color)} className="cap" />
-          ))}
         </div>
       </div>
     </div>
   );
 }
 
+/** Horse and elephant art faces right. The a-side pair is mirrored so the wings face outward. Rooks stay as drawn. */
+function facesOut(type: PieceType, sq: number, orientation: Color) {
+  if (type !== "A" && type !== "G") return false;
+  return (fileOf(sq) < 4) === (orientation === "w");
+}
+
 function Board({
   board,
   orientation,
+  squares,
   selected,
   targets,
   last,
@@ -958,6 +1077,7 @@ function Board({
 }: {
   board: (Piece | null)[];
   orientation: Color;
+  squares: { light: string; dark: string };
   selected: number | null;
   targets: number[];
   last: Move | null;
@@ -1034,6 +1154,7 @@ function Board({
   return (
     <div
       className={clsx("board", drag?.active && "board-dragging")}
+      style={{ "--sq-light": squares.light, "--sq-dark": squares.dark } as CSSProperties}
       ref={ref}
       onContextMenu={(e) => e.preventDefault()}
       onPointerDown={(e) => {
@@ -1094,7 +1215,13 @@ function Board({
                 <i className={clsx("coord file", dark ? "coord-on-dark" : "coord-on-light")}>{"abcdefgh"[file]}</i>
               )}
               {piece && !hidePiece && (
-                <span className={clsx("piece-wrap", piece.type === "K" && "piece-k", landSq === sq && "piece-land")}>
+                <span
+                  className={clsx(
+                    "piece-wrap",
+                    facesOut(piece.type, sq, orientation) && "face-out",
+                    landSq === sq && "piece-land",
+                  )}
+                >
                   <PieceGlyph type={piece.type} color={piece.color} />
                 </span>
               )}
@@ -1106,7 +1233,7 @@ function Board({
       )}
       {flight && flightPos && (
         <div
-          className="flight"
+          className={clsx("flight", facesOut(flight.type, flight.from, orientation) && "face-out")}
           style={{
             width: flight.type === "K" ? sqPx * 1.14 : sqPx,
             height: flight.type === "K" ? sqPx * 1.14 : sqPx,
@@ -1118,7 +1245,7 @@ function Board({
       )}
       {drag?.active && sqPx > 0 && board[drag.from] && (
         <div
-          className="ghost"
+          className={clsx("ghost", facesOut(board[drag.from]!.type, drag.from, orientation) && "face-out")}
           style={{
             width: sqPx * (board[drag.from]!.type === "K" ? 1.18 : 1.05),
             height: sqPx * (board[drag.from]!.type === "K" ? 1.18 : 1.05),

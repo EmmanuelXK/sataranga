@@ -22,6 +22,7 @@ export type Launch =
   | { kind: "resume" }
   | { kind: "pvp"; pace?: Pace; clocks?: Clocks }
   | { kind: "solo"; human: Color; level: Level; pace?: Pace; clocks?: Clocks; rated?: boolean; head?: number; strict?: boolean }
+  | { kind: "chaturaja"; dice: boolean; hands: "bots" | "table" }
   | { kind: "live"; room: string; name: string; pace?: Pace; clocks?: Clocks };
 
 export function roomCode(): string {

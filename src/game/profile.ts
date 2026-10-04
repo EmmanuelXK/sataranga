@@ -5,6 +5,8 @@ export type Profile = {
   coins: number;
   rating: number;
   wins: number;
+  losses: number;
+  draws: number;
   heads: number;
   streak: number;
   lastClaim: string;
@@ -35,7 +37,7 @@ export function headLevel(n: number): 1 | 2 | 3 | 4 {
 }
 
 function fresh(): Profile {
-  return { v: 1, coins: 0, rating: 400, wins: 0, heads: 0, streak: 0, lastClaim: "" };
+  return { v: 1, coins: 0, rating: 400, wins: 0, losses: 0, draws: 0, heads: 0, streak: 0, lastClaim: "" };
 }
 
 export function loadProfile(): Profile {
@@ -47,6 +49,8 @@ export function loadProfile(): Profile {
     base.coins = Number(data.coins) || 0;
     base.rating = Number(data.rating) || 400;
     base.wins = Number(data.wins) || 0;
+    base.losses = Number(data.losses) || 0;
+    base.draws = Number(data.draws) || 0;
     base.heads = Math.min(10, Number(data.heads) || 0);
     base.streak = Number(data.streak) || 0;
     base.lastClaim = typeof data.lastClaim === "string" ? data.lastClaim : "";
@@ -85,6 +89,8 @@ async function pushAccount(p: Profile) {
         coins: p.coins,
         rating: p.rating,
         wins: p.wins,
+        losses: p.losses,
+        draws: p.draws,
         heads: p.heads,
         streak: p.streak,
         lastClaim: p.lastClaim,
@@ -114,8 +120,38 @@ export async function hydrateAccount(): Promise<Profile | null> {
   }
 }
 
+export const RATED_WIN = 18;
+export const RATED_LOSS = 12;
+
+const RANKS = [
+  { title: "Hewa", min: 100 },
+  { title: "Yodha", min: 400 },
+  { title: "Senapati", min: 450 },
+  { title: "Gaja", min: 600 },
+  { title: "Ratha", min: 800 },
+  { title: "Raja", min: 1000 },
+] as const;
+
+export function rankProgress(rating: number): {
+  title: string;
+  next: string | null;
+  floor: number;
+  ceil: number;
+} {
+  let index = 0;
+  for (let i = 0; i < RANKS.length; i++) if (rating >= RANKS[i].min) index = i;
+  const current = RANKS[index];
+  const upcoming = RANKS[index + 1];
+  return {
+    title: current.title,
+    next: upcoming?.title ?? null,
+    floor: current.min,
+    ceil: upcoming?.min ?? current.min,
+  };
+}
+
 export function rankTitle(rating: number): string {
-  return rating >= 450 ? "Senapati" : "Yodha";
+  return rankProgress(rating).title;
 }
 
 export function todayKey(): string {
@@ -141,13 +177,15 @@ export function noteBattle(opts: { result: "win" | "loss" | "draw"; rated?: bool
   if (opts.result === "win") {
     p.wins += 1;
     p.coins += 12;
-    if (opts.rated) p.rating += 18;
+    if (opts.rated) p.rating += RATED_WIN;
     if (opts.head && opts.head === p.heads + 1) p.heads = opts.head;
   } else if (opts.result === "loss") {
+    p.losses += 1;
     p.coins += 2;
-    if (opts.rated) p.rating = Math.max(100, p.rating - 12);
-  } else if (opts.rated) {
-    p.coins += 4;
+    if (opts.rated) p.rating = Math.max(100, p.rating - RATED_LOSS);
+  } else {
+    p.draws += 1;
+    if (opts.rated) p.coins += 4;
   }
   return write(p);
 }

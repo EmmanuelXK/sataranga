@@ -1,4 +1,5 @@
 let ctx: AudioContext | null = null;
+let noise: AudioBuffer | null = null;
 
 function context(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -11,35 +12,75 @@ export function unlockAudio(): void {
   if (c && c.state === "suspended") void c.resume();
 }
 
-function tone(freq: number, at: number, dur: number, gain: number, type: OscillatorType): void {
-  const c = context();
-  if (!c) return;
+function noiseBuffer(c: AudioContext): AudioBuffer {
+  if (noise && noise.sampleRate === c.sampleRate) return noise;
+  const n = Math.floor(c.sampleRate * 0.25);
+  const buf = c.createBuffer(1, n, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  noise = buf;
+  return buf;
+}
+
+/** Dry wood click: a short noise burst through a bandpass, like a piece on a board. */
+function wood(c: AudioContext, t: number, freq: number, q: number, dur: number, gain: number): void {
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c);
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.setValueAtTime(freq, t);
+  bp.Q.setValueAtTime(q, t);
+  const g = c.createGain();
+  g.gain.setValueAtTime(gain, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp);
+  bp.connect(g);
+  g.connect(c.destination);
+  src.start(t);
+  src.stop(t + dur + 0.03);
+}
+
+/** Soft body of the board, so the click is not just hiss. */
+function body(c: AudioContext, t: number, freq: number, dur: number, gain: number): void {
   const osc = c.createOscillator();
   const g = c.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, at);
-  g.gain.setValueAtTime(gain, at);
-  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(freq, t);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(48, freq * 0.7), t + dur);
+  g.gain.setValueAtTime(gain, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   osc.connect(g);
   g.connect(c.destination);
-  osc.start(at);
-  osc.stop(at + dur + 0.02);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+function schedule(c: AudioContext, kind: "move" | "capture" | "check" | "end"): void {
+  const t = c.currentTime;
+  if (kind === "move") {
+    wood(c, t, 1680, 0.9, 0.042, 0.7);
+    body(c, t, 210, 0.045, 0.07);
+  } else if (kind === "capture") {
+    wood(c, t, 420, 0.7, 0.085, 0.85);
+    wood(c, t + 0.01, 980, 1.3, 0.04, 0.28);
+    body(c, t, 120, 0.09, 0.16);
+  } else if (kind === "check") {
+    wood(c, t, 1500, 1, 0.036, 0.4);
+    body(c, t, 880, 0.08, 0.09);
+    body(c, t + 0.068, 1318, 0.11, 0.075);
+  } else {
+    body(c, t, 784, 0.11, 0.07);
+    body(c, t + 0.1, 659, 0.11, 0.07);
+    body(c, t + 0.2, 523, 0.16, 0.065);
+  }
 }
 
 export function playSound(kind: "move" | "capture" | "check" | "end"): void {
   const c = context();
   if (!c) return;
-  const t = c.currentTime;
-  if (kind === "move") tone(620, t, 0.06, 0.04, "sine");
-  else if (kind === "capture") {
-    tone(180, t, 0.08, 0.06, "triangle");
-    tone(90, t, 0.1, 0.04, "sine");
-  } else if (kind === "check") {
-    tone(740, t, 0.07, 0.045, "sine");
-    tone(560, t + 0.08, 0.09, 0.04, "sine");
-  } else {
-    tone(520, t, 0.1, 0.04, "sine");
-    tone(390, t + 0.11, 0.14, 0.04, "sine");
-    tone(260, t + 0.24, 0.2, 0.035, "sine");
+  if (c.state === "suspended") {
+    void c.resume().then(() => schedule(c, kind));
+    return;
   }
+  schedule(c, kind);
 }

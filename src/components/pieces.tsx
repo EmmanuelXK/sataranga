@@ -18,9 +18,10 @@ export function PieceGlyph({
   color: Color;
   className?: string;
 }) {
+  const src = `/pieces/${color}-${FILE[type]}.svg?v=15`;
   return (
     <img
-      src={`/pieces/${color}-${FILE[type]}.png`}
+      src={src}
       alt=""
       draggable={false}
       className={className ? `piece-img ${className}` : "piece-img"}

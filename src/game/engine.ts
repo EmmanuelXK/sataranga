@@ -44,7 +44,7 @@ export const PIECE_META: Record<
     name: "Mantri",
     aka: "Counselor",
     blurb:
-      "One square diagonally only — not a sliding bishop. This is the piece a Padati promotes to.",
+      "One square diagonally only — not a sliding bishop. This is the piece a Hewa promotes to.",
   },
   G: {
     name: "Gaja",
@@ -63,10 +63,10 @@ export const PIECE_META: Record<
     blurb: "Slides any number of free squares along a rank or file. Same as the rook. No castling.",
   },
   P: {
-    name: "Padati",
-    aka: "Foot-soldier",
+    name: "Hewa",
+    aka: "හේවා",
     blurb:
-      "One square forward. Captures one square diagonally forward. No double step, no en passant. Promotes to Mantri.",
+      "One square forward. Captures one square diagonally forward. No double step, no en passant. Promotes to Mantri. Eight Hewa are a Sena (සේනා).",
   },
 };
 
@@ -449,7 +449,7 @@ export function replay(moves: Move[]): Position | null {
 export type Level = 1 | 2 | 3 | 4;
 
 export const ENGINES: Record<Level, { name: string; blurb: string }> = {
-  1: { name: "Padati", blurb: "One look ahead. Forgiving, good for learning the leaps." },
+  1: { name: "Hewa", blurb: "One look ahead. Forgiving, good for learning the leaps." },
   2: { name: "Ashva", blurb: "Everyday opponent. Sees tactics and keeps the Raja safe." },
   3: { name: "Gaja", blurb: "Deeper search. Punishes loose chariots and bare-Raja mistakes." },
   4: { name: "Raja", blurb: "Deepest search on this board. Slow, stubborn, and hard to trick." },

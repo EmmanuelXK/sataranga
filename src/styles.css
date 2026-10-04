@@ -158,6 +158,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
 .cj-sq.to { box-shadow: inset 0 0 0 4px #f5e27a; }
 .cj-sq.sel.from { box-shadow: inset 0 0 0 3px #fff; }
 .cj-piece { position: relative; isolation: isolate; width: 86%; height: 86%; display: block; mask-repeat: no-repeat; mask-position: center; mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; -webkit-mask-size: contain; }
+.cj-piece.face-in { transform: scaleX(-1); }
 .cj-piece img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; pointer-events: none; }
 .cj-piece.retro { filter: drop-shadow(0 0 0.4px #5c4314) drop-shadow(0 0.45px 0 #d4b36a); }
 .cj-piece.retro.ship { filter: drop-shadow(0 0 0.55px #3a2a12) drop-shadow(0 0 0.4px #e4c57a); }

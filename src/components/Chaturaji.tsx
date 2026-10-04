@@ -15,6 +15,7 @@ import {
   faceHint,
   leader,
   movesFor,
+  mirrorTowardCenter,
   movesForFace,
   readPieceSet,
   rollPair,
@@ -41,13 +42,13 @@ const FILE: Record<CType, string> = {
 };
 
 /** NEO stays the flat army color. RETRO is the same shape in vintage enamel, with the same thin black lines. */
-function Glyph({ type, army, set }: { type: CType; army: Army; set: PieceSet }) {
+function Glyph({ type, army, set, faceIn }: { type: CType; army: Army; set: PieceSet; faceIn?: boolean }) {
   const src = `/pieces/b-${FILE[type]}.svg?v=23`;
   const lines = type !== "Y";
   const paint = set === "retro" ? RETRO_PAINT[army] : null;
   return (
     <i
-      className={clsx("cj-piece", paint && "retro", !lines && "ship")}
+      className={clsx("cj-piece", paint && "retro", !lines && "ship", faceIn && "face-in")}
       style={{
         background: paint
           ? `linear-gradient(152deg, rgba(255,246,226,.78), transparent 34%), linear-gradient(185deg, ${paint.hi} 0%, ${paint.mid} 46%, ${paint.lo} 100%)`
@@ -237,7 +238,14 @@ export function Chaturaji({
                 style={{ gridRow: cell.row + 1, gridColumn: cell.col + 1 }}
                 onClick={() => onSquare(square)}
               >
-                {piece && <Glyph type={piece.type} army={piece.army} set={set} />}
+                {piece && (
+                  <Glyph
+                    type={piece.type}
+                    army={piece.army}
+                    set={set}
+                    faceIn={mirrorTowardCenter(piece.type, square, view)}
+                  />
+                )}
                 {to && <s className={piece ? "cj-cap" : "cj-dot"} />}
               </button>
             );

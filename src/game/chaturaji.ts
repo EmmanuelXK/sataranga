@@ -110,8 +110,7 @@ const FWD: Record<Army, [number, number]> = {
   gold: [-1, 0],
 };
 
-/** From each corner inward: Ratha, Ashva, Raja, Gaja. Ashva and Gaja mirror the Raja. */
-const BACK: CType[] = ["Y", "A", "K", "G"];
+const BACK: CType[] = ["Y", "A", "G", "K"];
 
 function emptyScores(): Record<Army, number> {
   return { red: 0, green: 0, black: 0, gold: 0 };
@@ -157,7 +156,7 @@ export function startState(dice: boolean): CState {
     turn: "red",
     scores: emptyScores(),
     taken: emptyScores(),
-    thrones: { red: sq(2, 0), green: sq(0, 5), black: sq(5, 7), gold: sq(7, 2) },
+    thrones: { red: sq(3, 0), green: sq(0, 4), black: sq(4, 7), gold: sq(7, 3) },
     dice,
     rolls: [],
     step: 0,

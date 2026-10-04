@@ -1,5 +1,39 @@
 const KEY = "yuddha-profile-v1";
 
+/** `YYYY-M-D` (unpadded) → comparable day number. Invalid keys sort first. */
+export function claimDayValue(key: string): number {
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(key);
+  if (!match) return 0;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return 0;
+  return year * 10000 + month * 100 + day;
+}
+
+function gamesPlayed(row: { wins: number; losses: number; draws: number }): number {
+  return row.wins + row.losses + row.draws;
+}
+
+/**
+ * This device should keep its copy when it has progressed past the server row.
+ * Equal records are not "newer" — the server copy can win those.
+ */
+export function profileIsNewer(
+  local: Pick<Profile, "wins" | "losses" | "draws" | "heads" | "coins" | "lastClaim">,
+  remote: Pick<Profile, "wins" | "losses" | "draws" | "heads" | "coins" | "lastClaim">,
+): boolean {
+  const localGames = gamesPlayed(local);
+  const remoteGames = gamesPlayed(remote);
+  if (localGames !== remoteGames) return localGames > remoteGames;
+  if (local.heads !== remote.heads) return local.heads > remote.heads;
+  const localClaim = claimDayValue(local.lastClaim);
+  const remoteClaim = claimDayValue(remote.lastClaim);
+  if (localClaim !== remoteClaim) return localClaim > remoteClaim;
+  if (local.coins !== remote.coins) return local.coins > remote.coins;
+  return false;
+}
+
 export type Profile = {
   v: 1;
   coins: number;
@@ -62,11 +96,43 @@ export function loadProfile(): Profile {
 
 function write(p: Profile): Profile {
   localStorage.setItem(KEY, JSON.stringify(p));
-  if (!holdSync) void pushAccount(p);
+  if (!holdSync) enqueuePush(p);
   return p;
 }
 
+/** Put an earlier record back (undo of a result that was already saved). */
+export function replaceProfile(next: Profile): Profile {
+  return write({ ...next, v: 1 });
+}
+
 let holdSync = false;
+
+type AccountPush = {
+  coins: number;
+  rating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  heads: number;
+  streak: number;
+  lastClaim: string;
+};
+
+let pushQueue: Promise<void> = Promise.resolve();
+
+function enqueuePush(p: Profile) {
+  const data: AccountPush = {
+    coins: p.coins,
+    rating: p.rating,
+    wins: p.wins,
+    losses: p.losses,
+    draws: p.draws,
+    heads: p.heads,
+    streak: p.streak,
+    lastClaim: p.lastClaim,
+  };
+  pushQueue = pushQueue.catch(() => undefined).then(() => sendAccount(data));
+}
 
 function applyLocal(p: Profile): Profile {
   holdSync = true;
@@ -77,25 +143,14 @@ function applyLocal(p: Profile): Profile {
   }
 }
 
-async function pushAccount(p: Profile) {
+async function sendAccount(data: AccountPush) {
   try {
     const { authEnabled, authClient } = await import("@/lib/auth/client");
     if (!authEnabled) return;
     const session = await authClient.getSession();
     if (!session.data?.user) return;
     const { saveAccount } = await import("@/game/account");
-    await saveAccount({
-      data: {
-        coins: p.coins,
-        rating: p.rating,
-        wins: p.wins,
-        losses: p.losses,
-        draws: p.draws,
-        heads: p.heads,
-        streak: p.streak,
-        lastClaim: p.lastClaim,
-      },
-    });
+    await saveAccount({ data });
   } catch {
     /* guest, or the account table is still starting */
   }
@@ -108,11 +163,13 @@ export async function hydrateAccount(): Promise<Profile | null> {
     if (!authEnabled) return null;
     const session = await authClient.getSession();
     if (!session.data?.user) return null;
+    await pushQueue;
     const { loadAccount } = await import("@/game/account");
     const remote = await loadAccount();
-    if (!remote) {
-      await pushAccount(loadProfile());
-      return loadProfile();
+    const local = loadProfile();
+    if (!remote || profileIsNewer(local, remote)) {
+      enqueuePush(local);
+      return local;
     }
     return applyLocal({ v: 1, ...remote });
   } catch {

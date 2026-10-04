@@ -4,11 +4,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 import {
   appNameFromHost,
-  createHeadInjector,
+  createHeadInjector as createHeadInjectorRaw,
   grokXCreatorHeadTags,
-  injectGrokPwaHead,
+  injectGrokPwaHead as injectGrokPwaHeadRaw,
   isDocumentPath,
   isInstallQuery,
   publicAppHost,
@@ -17,7 +18,13 @@ import {
   snapshotOgIdentity,
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
-import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+
+// This app has site.json and public/og.jpg. Tests that omit cwd must not
+// pick those up, or they stop testing the injector and start testing the brand.
+const ISOLATED_CWD = mkdtempSync(join(tmpdir(), "pwa-isolated-"));
+const injectGrokPwaHead = (html, ctx = {}) =>
+  injectGrokPwaHeadRaw(html, { cwd: ISOLATED_CWD, ...ctx });
+const createHeadInjector = (ctx = {}) => createHeadInjectorRaw({ cwd: ISOLATED_CWD, ...ctx });
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 

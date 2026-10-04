@@ -79,6 +79,13 @@ export function Chaturaji({
   const [shown, setShown] = useState<[Face | null, Face | null]>([null, null]);
   const gameRef = useRef(game);
   gameRef.current = game;
+  const rollTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (rollTimer.current != null) window.clearTimeout(rollTimer.current);
+    },
+    [],
+  );
   const view: Army = launch.hands === "table" ? game.turn : "red";
   const human = launch.hands === "bots" ? game.turn === "red" : !cover;
   const needsRoll = game.dice && game.rolls.length === 0;
@@ -150,7 +157,9 @@ export function Chaturaji({
     const rolls = rollPair();
     setShown([rolls[0], rolls[1]]);
     setSpin(true);
-    window.setTimeout(() => {
+    if (rollTimer.current != null) window.clearTimeout(rollTimer.current);
+    rollTimer.current = window.setTimeout(() => {
+      rollTimer.current = null;
       setSpin(false);
       const prev = gameRef.current;
       let next: CState = { ...prev, rolls, step: 0, face: rolls[0], acted: false, note: "" };

@@ -39,10 +39,10 @@ import {
   type Position,
 } from "@/game/engine";
 import { playSound, unlockAudio } from "@/game/sound";
-import { loadCareer, noteSolo } from "@/game/career";
-import { loadProfile, noteBattle } from "@/game/profile";
+import { loadCareer, noteSolo, replaceCareer, resultStamp, type Career } from "@/game/career";
+import { loadProfile, noteBattle, replaceProfile, type Profile } from "@/game/profile";
 import { PACE_MS } from "@/game/launch";
-import { boardTheme, BOARDS, readBoard, writeBoard, type BoardId } from "@/game/boards";
+import { boardTheme, BOARDS, pointInBoard, readBoard, writeBoard, type BoardId } from "@/game/boards";
 import { PieceGlyph } from "@/components/pieces";
 import { Board3D, fightMs, type Strike } from "@/components/Board3D";
 import { P2PRoom } from "@/lib/multiplayer";
@@ -200,6 +200,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const timed = baseClock.w > 0 || baseClock.b > 0;
   const [clock, setClock] = useState<Record<Color, number>>(baseClock);
   const recorded = useRef("");
+  const resultSnap = useRef<{ profile: Profile; career: Career } | null>(null);
   const busy = useRef(false);
   const selfId = useRef(`p${Math.random().toString(36).slice(2, 12)}`);
   const liveRef = useRef<P2PRoom | null>(null);
@@ -264,9 +265,11 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 
   useEffect(() => {
     if (!endKey || game.mode !== "solo" || game.moves.length < 2) return;
-    if (recorded.current === endKey) return;
-    recorded.current = endKey;
+    const stamp = resultStamp(endKey, game.moves);
+    if (recorded.current === stamp) return;
+    recorded.current = stamp;
     if (end.kind === "ongoing") return;
+    resultSnap.current = { profile: loadProfile(), career: loadCareer() };
     const result = end.kind === "draw" ? "draw" : end.winner === game.human ? "win" : "loss";
     noteSolo(game.level, ENGINES[game.level].name, result);
     const rated = launch.kind === "solo" && !!launch.rated;
@@ -280,7 +283,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     } else {
       setRatedLine(null);
     }
-  }, [endKey, end, game.mode, game.moves.length, game.human, game.level, launch]);
+  }, [endKey, end, game.mode, game.moves, game.human, game.level, launch]);
 
   const logical: Color = game.mode === "solo" ? (game.bottom ?? game.human) : game.mode === "pvp" ? view.turn : game.bottom ?? view.turn;
 
@@ -323,28 +326,36 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     if (flight) return;
     setThinking(true);
     let cancel = false;
+    let settled = false;
     const worker = new Worker(new URL("../game/ai.worker.ts", import.meta.url), { type: "module" });
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+    };
     const id = window.setTimeout(() => {
-      if (cancel) return;
+      if (cancel || settled) return;
       worker.postMessage({ pos: live, level: game.level });
     }, 180);
     worker.onmessage = (event: MessageEvent<Move | null>) => {
-      if (cancel) return;
+      if (cancel || settled) return;
+      finish();
       setThinking(false);
       const move = event.data;
       if (move) commitMove(move, live);
-      worker.terminate();
     };
     worker.onerror = () => {
-      if (cancel) return;
+      if (cancel || settled) return;
+      finish();
       const move = pickAiMove(live, game.level);
+      if (cancel) return;
       setThinking(false);
       if (move) commitMove(move, live);
     };
     return () => {
       cancel = true;
       window.clearTimeout(id);
-      worker.terminate();
+      finish();
     };
     // commitMove reads the latest sound flag; the searched position is this snapshot
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -352,6 +363,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 
   function commitMove(move: Move, fromPos: Position) {
     if (busy.current) return;
+    if (movesRef.current.length !== fromPos.moves.length) return;
     busy.current = true;
     const reduce =
       typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -460,12 +472,25 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     if (game.mode === "live") liveRef.current?.send({ t: "mv", from: move.from, to: move.to, promotion: move.promotion });
   }
 
+  function revertRecordedResult() {
+    const snap = resultSnap.current;
+    if (!snap) return;
+    replaceProfile(snap.profile);
+    replaceCareer(snap.career);
+    resultSnap.current = null;
+    recorded.current = "";
+    setRatedLine(null);
+  }
+
   function undo() {
+    if (game.flagged) return;
     if (game.resigned && ply === game.moves.length) {
+      if (end.kind !== "ongoing") revertRecordedResult();
       setGame((g) => ({ ...g, resigned: null }));
       setOverOpen(false);
       return;
     }
+    if (end.kind !== "ongoing") revertRecordedResult();
     if (!game.moves.length) return;
     setFlight(null);
     passAfter.current = false;
@@ -495,6 +520,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     setConfirm(null);
     setPly(0);
     recorded.current = "";
+    resultSnap.current = null;
     setRatedLine(null);
     setClock(startClocks(launch));
     setGame((g) => ({ ...g, moves: [], resigned: null, flagged: null }));
@@ -726,7 +752,11 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               type="button"
               className="tool"
               onClick={undo}
-              disabled={(launch.kind === "solo" && !!launch.strict) || (!game.moves.length && !game.resigned && !game.flagged)}
+              disabled={
+                (launch.kind === "solo" && !!launch.strict) ||
+                !!game.flagged ||
+                (!game.moves.length && !game.resigned)
+              }
             >
               <Undo2 strokeWidth={1.75} />
               <span>Undo</span>
@@ -1166,7 +1196,8 @@ function Board({
         const piece = board[sq];
         if (piece && piece.color === turn) {
           onSelect(sq);
-          setDrag({ pointer: e.pointerId, from: sq, x: e.clientX, y: e.clientY, active: false });
+          const point = pointInBoard(e.clientX, e.clientY, (e.currentTarget as HTMLElement).getBoundingClientRect());
+          setDrag({ pointer: e.pointerId, from: sq, x: point.x, y: point.y, active: false });
           return;
         }
         if (fromSq != null && targetSet.has(sq)) onMove(fromSq, sq);
@@ -1174,10 +1205,11 @@ function Board({
       }}
       onPointerMove={(e) => {
         if (!drag || drag.pointer !== e.pointerId) return;
-        const dx = e.clientX - drag.x;
-        const dy = e.clientY - drag.y;
-        if (!drag.active && dx * dx + dy * dy > 36) setDrag({ ...drag, active: true, x: e.clientX, y: e.clientY });
-        else if (drag.active) setDrag({ ...drag, x: e.clientX, y: e.clientY });
+        const point = pointInBoard(e.clientX, e.clientY, (e.currentTarget as HTMLElement).getBoundingClientRect());
+        const dx = point.x - drag.x;
+        const dy = point.y - drag.y;
+        if (!drag.active && dx * dx + dy * dy > 36) setDrag({ ...drag, active: true, x: point.x, y: point.y });
+        else if (drag.active) setDrag({ ...drag, x: point.x, y: point.y });
       }}
       onPointerUp={(e) => {
         if (!drag || drag.pointer !== e.pointerId) return;

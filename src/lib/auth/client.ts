@@ -153,6 +153,30 @@ export async function signIn(
 }
 
 /**
+ * Google or X through this app's own OAuth client (not the Grok broker).
+ * Better Auth's id for X is `twitter`. Redirects the browser to the provider.
+ */
+export async function signInDirect(
+  provider: "google" | "twitter",
+  opts: { callbackURL?: string } = {},
+): Promise<void> {
+  const callbackURL = opts.callbackURL ?? "/";
+  await runPreSignInSignOut({
+    livePreview: inLivePreview(),
+    hasBearer: Boolean(getBearerToken()),
+    requestSignOut: () => authClient.signOut(),
+    clearToken: () => setBearerToken(null),
+  });
+  const { data, error } = await authClient.signIn.social({
+    provider,
+    callbackURL,
+    errorCallbackURL: "/login",
+  });
+  if (error) throw new Error(error.message ?? "Sign-in failed");
+  if (data?.url) window.location.href = data.url;
+}
+
+/**
  * Open `/auth/popup` in a new window. Must run synchronously inside the click
  * handler (no await before this). The path is served by the template Vite
  * plugin (`authPopupPlugin` in vite.config.ts) — NOT by a React route.

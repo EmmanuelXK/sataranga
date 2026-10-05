@@ -100,8 +100,8 @@ function Camp({
   const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
 
   return (
-    <main className="yd">
-      <div className="yd-body">
+    <main className={clsx("yd", tab === "heads" && "yd-lock")}>
+      <div className={clsx("yd-body", tab === "heads" && "heads-fit")}>
         {tab === "war" && (
           <>
             <header className="yd-head">
@@ -252,21 +252,28 @@ function Camp({
 
         {tab === "heads" && (
           <>
-            <header className="yd-head">
+            <header className="yd-head heads-head">
               <div>
                 <p className="yd-kicker">Ten heads</p>
                 <h1>{profile.heads} fallen</h1>
               </div>
             </header>
             <p className="yd-copy">Win the head in front of you. Each one searches harder. No rating change.</p>
-            <ol className="road" style={{ ["--fallen" as string]: Math.min(profile.heads, 9) }}>
+            <ol className="map">
               {Array.from({ length: 10 }, (_, i) => {
                 const n = i + 1;
                 const open = n === profile.heads + 1;
                 const done = n <= profile.heads;
-                const side = n % 2 === 1 ? "left" : "right";
+                const row = Math.ceil(n / 2);
+                const reversed = row % 2 === 0;
+                const col = n % 2 === 1 ? (reversed ? 2 : 1) : reversed ? 1 : 2;
+                const link = n === 10 ? "end" : n % 2 === 0 ? "drop" : row % 2 === 1 ? "east" : "west";
                 return (
-                  <li key={n} className={clsx("road-stop", side, done && "done", open && "now", !done && !open && "locked")}>
+                  <li
+                    key={n}
+                    className={clsx("map-stop", link, done && "done", open && "now", !done && !open && "locked", n <= profile.heads && "walked")}
+                    style={{ gridRow: row, gridColumn: col }}
+                  >
                     <button
                       type="button"
                       disabled={!open}
@@ -281,24 +288,12 @@ function Camp({
                         })
                       }
                     >
-                      {side === "right" && <span className="road-gap" />}
-                      {side === "left" && (
-                        <span className="road-card">
-                          <strong>{headName(n)}</strong>
-                          <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
-                        </span>
-                      )}
-                      <span className="road-node">
+                      <span className="map-face">
                         <img src={`/art/heads/${headName(n).toLowerCase()}.jpg`} alt="" />
                         <i>{done ? "✓" : n}</i>
                       </span>
-                      {side === "right" && (
-                        <span className="road-card">
-                          <strong>{headName(n)}</strong>
-                          <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
-                        </span>
-                      )}
-                      {side === "left" && <span className="road-gap" />}
+                      <strong>{headName(n)}</strong>
+                      <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
                     </button>
                   </li>
                 );

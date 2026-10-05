@@ -35,7 +35,8 @@ export type Launch =
   | { kind: "pvp"; pace?: Pace; clocks?: Clocks; increment?: number }
   | { kind: "solo"; human: Color; level: Level; pace?: Pace; clocks?: Clocks; increment?: number; rated?: boolean; head?: number; strict?: boolean }
   | { kind: "chaturaja"; dice: boolean; hands: "bots" | "table" }
-  | { kind: "live"; room: string; name: string; pace?: Pace; clocks?: Clocks; increment?: number };
+  | { kind: "prep"; game: "ashta" | "pro" | "sena" }
+  | { kind: "live"; room: string; name: string; pace?: Pace; clocks?: Clocks; increment?: number; auto?: boolean };
 
 export function roomCode(): string {
   const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";

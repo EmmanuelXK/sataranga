@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { Castle, Crown, Dices, Lock, Swords, UserRound, Users } from "lucide-react";
-import { ENGINES, type Color, type Level } from "@/game/engine";
+import { Castle, Crown, Lock, Swords, UserRound } from "lucide-react";
+import { ENGINES } from "@/game/engine";
 import { PieceGlyph } from "@/components/pieces";
-import { pairClocks, roomCode, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
+import { pairClocks, roomCode, TIME_CONTROL, type Launch } from "@/game/launch";
 import { readPieceSet, writePieceSet, type PieceSet } from "@/game/chaturaji";
 import { loadCareer, saveName } from "@/game/career";
 import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, mahaUnlocked, rankProgress, todayKey, type Profile } from "@/game/profile";
@@ -12,8 +12,6 @@ import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 
 type Tab = "war" | "yuddha" | "heads" | "profile";
-type Mode = "ashta" | "chaturaja" | "pro";
-type Seat = "bots" | "online" | "war";
 
 const SEEN = "yuddha-seen-v1";
 
@@ -82,15 +80,9 @@ function Camp({
   onPlay: (launch: Launch) => void;
 }) {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
-  const [mode, setMode] = useState<Mode>("ashta");
-  const [time, setTime] = useState<TimeControl>("blitz");
-  const [seat, setSeat] = useState<Seat>("bots");
-  const [rated, setRated] = useState(true);
-  const [dice, setDice] = useState(true);
   const [pieceSet, setPieceSet] = useState<PieceSet>(readPieceSet);
-  const [hands, setHands] = useState<"bots" | "table">("bots");
-  const [human, setHuman] = useState<Color>(() => (typeof localStorage !== "undefined" && localStorage.getItem("yuddha-side-v1") === "b" ? "b" : "w"));
   const [join, setJoin] = useState("");
+  const [lockNote, setLockNote] = useState(false);
   useEffect(() => {
     let live = true;
     hydrateAccount().then((next) => {
@@ -104,34 +96,8 @@ function Camp({
   const rank = rankProgress(profile.rating);
   const title = rank.title;
   const proOpen = mahaUnlocked(profile);
-  const tc = TIME_CONTROL[time];
-  const clocks = pairClocks(time);
   const nextHead = Math.min(10, profile.heads + 1);
   const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
-
-  function battle() {
-    if (mode === "pro" && !proOpen) return;
-    if (mode === "chaturaja") {
-      onPlay({ kind: "chaturaja", dice, hands });
-      return;
-    }
-    if (seat === "war") {
-      onPlay({ kind: "pvp", clocks, increment: tc.inc });
-      return;
-    }
-    const level: Level =
-      mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4;
-    localStorage.setItem("yuddha-side-v1", human === "w" ? "b" : "w");
-    onPlay({
-      kind: "solo",
-      human,
-      level,
-      clocks,
-      increment: tc.inc,
-      rated,
-      strict: mode === "pro",
-    });
-  }
 
   return (
     <main className="yd">
@@ -219,15 +185,7 @@ function Camp({
                 ))}
               </div>
             </section>
-            <section className="panel friend-strip">
-              <div>
-                <h2>A friend, one code</h2>
-                <p>No public ladder. Challenge someone you know.</p>
-              </div>
-              <button type="button" className="quiet" onClick={() => setTab("profile")}>
-                Challenge
-              </button>
-            </section>
+            <BlitzSeat name={name} onPlay={onPlay} />
           </>
         )}
 
@@ -240,108 +198,38 @@ function Camp({
               </div>
             </header>
             <ModeCard
-              on={mode === "ashta"}
               title="SATARANGA"
               copy="Ashtapadha. Classic 8×8."
               tone="coral"
               art="/art/ashta.png"
               times={["Blitz", "Rapid"]}
-              onClick={() => setMode("ashta")}
+              onClick={() => onPlay({ kind: "prep", game: "ashta" })}
             />
             <ModeCard
-              on={mode === "chaturaja"}
               title="SENAA"
               copy="Chathuraja. Four kings."
               tone="gold"
               art="/art/sena.png"
-              times={["4 kings", dice ? "Dice" : "Free"]}
-              onClick={() => setMode("chaturaja")}
+              times={["4 kings", "Dice"]}
+              onClick={() => onPlay({ kind: "prep", game: "sena" })}
             />
             <ModeCard
-              on={mode === "pro"}
               title="MAHA YUDDHA"
               copy={proOpen ? "Raja engine. No takebacks." : `${profile.wins}/5 SATARANGA · ${profile.senaWins ?? 0}/5 SENAA`}
               tone="green"
               art="/art/pro.png"
               times={["Blitz", "Rapid"]}
               locked={!proOpen}
-              onClick={() => setMode("pro")}
+              onClick={() => {
+                if (!proOpen) {
+                  setLockNote(true);
+                  return;
+                }
+                onPlay({ kind: "prep", game: "pro" });
+              }}
             />
-            {mode === "chaturaja" ? (
-              <>
-                <div className="side-h">
-                  <p className="field-label">The die</p>
-                  <p className="field-note">Raja, Gaja, Ashva, Yathra</p>
-                </div>
-                <div className="pace-row">
-                  <button type="button" className={clsx("pace", dice && "on coral")} onClick={() => setDice(true)}>
-                    <Dices /> Dice on
-                  </button>
-                  <button type="button" className={clsx("pace", !dice && "on green")} onClick={() => setDice(false)}>
-                    Free move
-                  </button>
-                </div>
-                <div className="pace-row">
-                  <button type="button" className={clsx("pace", hands === "bots" && "on coral")} onClick={() => setHands("bots")}>
-                    You vs three
-                  </button>
-                  <button type="button" className={clsx("pace", hands === "table" && "on green")} onClick={() => setHands("table")}>
-                    Four hands
-                  </button>
-                </div>
-                <button type="button" className="yd-battle" onClick={battle}>
-                  <Swords strokeWidth={2.25} /> Enter SENAA
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="side-h">
-                  <p className="field-label">Time</p>
-                  <p className="field-note">{tc.name} · {tc.label}</p>
-                </div>
-                <div className="pace-row">
-                  <button type="button" className={clsx("pace", time === "blitz" && "on coral")} onClick={() => setTime("blitz")}>
-                    Blitz · 3+2
-                  </button>
-                  <button type="button" className={clsx("pace", time === "rapid" && "on green")} onClick={() => setTime("rapid")}>
-                    Rapid · 5+10
-                  </button>
-                </div>
-                <div className="pace-row">
-                  <button type="button" className={clsx("pace", seat === "bots" && rated && "on coral")} onClick={() => { setSeat("bots"); setRated(true); }}>
-                    Rated · bots
-                  </button>
-                  <button type="button" className={clsx("pace", seat === "bots" && !rated && "on green")} onClick={() => { setSeat("bots"); setRated(false); }}>
-                    Casual · bots
-                  </button>
-                </div>
-                <div className="pace-row">
-                  <button type="button" className={clsx("pace", seat === "online" && "on green")} onClick={() => setSeat("online")}>
-                    Online
-                  </button>
-                  <button type="button" className={clsx("pace", seat === "war" && "on coral")} onClick={() => setSeat("war")}>
-                    <Users strokeWidth={2.25} /> War
-                  </button>
-                </div>
-                {seat === "online" ? (
-                  <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} clocks={clocks} increment={tc.inc} />
-                ) : (
-                  <button type="button" className="yd-battle" onClick={battle} disabled={mode === "pro" && !proOpen}>
-                    <Swords strokeWidth={2.25} /> {seat === "war" ? "War · pass & play" : mode === "pro" ? "Enter MAHA YUDDHA" : "Battle"}
-                  </button>
-                )}
-                <p className="yd-fine">
-                  {mode === "pro" && !proOpen
-                    ? "Unlock with 5 wins in SATARANGA and 5 wins in SENAA."
-                    : seat === "war"
-                      ? "Same phone. The board flips after every move."
-                      : seat === "online"
-                        ? "One code. Unrated."
-                        : rated
-                          ? `${ENGINES[mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4].name} plays the other side. Win +18. Loss −12.`
-                          : "Casual games are not rated."}
-                </p>
-              </>
+            {lockNote && !proOpen && (
+              <p className="yd-fine">Unlock with 5 wins in SATARANGA and 5 wins in SENAA.</p>
             )}
           </>
         )}
@@ -524,7 +412,6 @@ function TabBtn({
 }
 
 function ModeCard({
-  on,
   title,
   copy,
   tone,
@@ -533,7 +420,6 @@ function ModeCard({
   locked,
   onClick,
 }: {
-  on: boolean;
   title: string;
   copy: string;
   tone: "coral" | "gold" | "green";
@@ -543,7 +429,7 @@ function ModeCard({
   onClick: () => void;
 }) {
   return (
-    <button type="button" className={clsx("mode", on && "on")} onClick={onClick} aria-pressed={on}>
+    <button type="button" className="mode" onClick={onClick}>
       <span className={clsx("mode-art", tone)}>
         <img src={art} alt="" />
       </span>
@@ -554,8 +440,6 @@ function ModeCard({
             <em>
               <Lock strokeWidth={2} /> Locked
             </em>
-          ) : on ? (
-            <i className="tick" />
           ) : null}
         </strong>
         <span>{copy}</span>
@@ -568,20 +452,104 @@ function ModeCard({
   );
 }
 
+function BlitzSeat({ name, onPlay }: { name: string; onPlay: (launch: Launch) => void }) {
+  const peer = useRef(`p${Math.random().toString(36).slice(2, 12)}`);
+  const cancelRef = useRef(false);
+  const hold = useRef(false);
+  const running = useRef(false);
+  const [phase, setPhase] = useState<"idle" | "wait" | "down">("idle");
+
+  useEffect(() => {
+    const id = peer.current;
+    return () => {
+      cancelRef.current = true;
+      if (hold.current) return;
+      void fetch("/api/rtc", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "unpair", peer: id }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+  }, []);
+
+  async function find() {
+    if (running.current) return;
+    running.current = true;
+    cancelRef.current = false;
+    setPhase("wait");
+    while (!cancelRef.current) {
+      try {
+        const res = await fetch("/api/rtc", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ op: "pair", peer: peer.current, name: name.trim() || "You" }),
+        });
+        if (!res.ok) throw new Error("pair");
+        const data = (await res.json()) as { status?: string; room?: string };
+        if (cancelRef.current) return;
+        if (data.status === "matched" && data.room) {
+          hold.current = true;
+          onPlay({
+            kind: "live",
+            room: data.room,
+            name: name.trim() || "You",
+            clocks: pairClocks("blitz"),
+            increment: TIME_CONTROL.blitz.inc,
+            auto: true,
+          });
+          return;
+        }
+      } catch {
+        if (!cancelRef.current) setPhase("down");
+        running.current = false;
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+    }
+    running.current = false;
+  }
+
+  function cancel() {
+    cancelRef.current = true;
+    setPhase("idle");
+    void fetch("/api/rtc", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ op: "unpair", peer: peer.current }),
+    }).catch(() => {});
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-h">
+        <h2>SATARANGA Blitz</h2>
+      </div>
+      <p>3+2 with whoever is free. No friend code.</p>
+      {phase === "wait" ? (
+        <button type="button" className="quiet wide" onClick={cancel}>
+          Waiting for a player · Cancel
+        </button>
+      ) : (
+        <button type="button" className="yd-battle" onClick={() => void find()}>
+          <Swords strokeWidth={2.25} /> {phase === "down" ? "Try again" : "Find a game"}
+        </button>
+      )}
+      {phase === "down" && <p>The table could not be reached. Try again.</p>}
+    </section>
+  );
+}
+
 function FriendTable({
   name,
   join,
   setJoin,
   onPlay,
-  clocks,
-  increment,
 }: {
   name: string;
   join: string;
   setJoin: (v: string) => void;
   onPlay: (launch: Launch) => void;
-  clocks?: ReturnType<typeof pairClocks>;
-  increment?: number;
 }) {
   return (
     <section className="panel">
@@ -596,7 +564,7 @@ function FriendTable({
       <button
         type="button"
         className="yd-battle"
-        onClick={() => onPlay({ kind: "live", room: roomCode(), name: name.trim() || "You", clocks, increment })}
+        onClick={() => onPlay({ kind: "live", room: roomCode(), name: name.trim() || "You" })}
       >
         Open a table
       </button>
@@ -606,7 +574,7 @@ function FriendTable({
           e.preventDefault();
           const room = join.trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
           if (room.length < 4) return;
-          onPlay({ kind: "live", room, name: name.trim() || "You", clocks, increment });
+          onPlay({ kind: "live", room, name: name.trim() || "You" });
         }}
       >
         <input value={join} placeholder="Enter a code" aria-label="Table code" maxLength={12} onChange={(e) => setJoin(e.target.value)} />

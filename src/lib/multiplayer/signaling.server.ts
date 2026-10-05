@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { getSql, type Sql } from "@/lib/db";
+import { pairRoom } from "./match";
 import type { PeerRow, RtcPollResponse, SignalRow } from "./p2p";
 
 const ID = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
@@ -19,13 +20,22 @@ const signalSchema = z.object({
   }),
 });
 const leaveSchema = z.object({ op: z.literal("leave"), room: ID, peer: ID });
-const postSchema = z.discriminatedUnion("op", [signalSchema, leaveSchema]);
+const pairSchema = z.object({
+  op: z.literal("pair"),
+  peer: ID,
+  name: z.string().max(64).default(""),
+});
+const unpairSchema = z.object({ op: z.literal("unpair"), peer: ID });
+const postSchema = z.discriminatedUnion("op", [signalSchema, leaveSchema, pairSchema, unpairSchema]);
+
+const BLITZ_QUEUE = "sataranga-blitz";
 
 const PEER_TTL_SECONDS = 30;
 const SIGNAL_TTL_SECONDS = 60;
 
 const globalRef = globalThis as typeof globalThis & {
   __rtcSchemaPromise__?: Promise<void>;
+  __rtcQueuePromise__?: Promise<void>;
 };
 
 function ensureSchema(sql: Sql): Promise<void> {
@@ -61,6 +71,26 @@ function ensureSchema(sql: Sql): Promise<void> {
   return globalRef.__rtcSchemaPromise__;
 }
 
+function ensureQueue(sql: Sql): Promise<void> {
+  globalRef.__rtcQueuePromise__ ??= sql
+    .query(
+      `CREATE TABLE IF NOT EXISTS webrtc_queue (
+         queue_id TEXT NOT NULL,
+         peer_id TEXT NOT NULL,
+         name TEXT NOT NULL DEFAULT '',
+         last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+         room TEXT,
+         PRIMARY KEY (queue_id, peer_id)
+       )`,
+    )
+    .then(() => undefined)
+    .catch((err) => {
+      globalRef.__rtcQueuePromise__ = undefined;
+      throw err;
+    });
+  return globalRef.__rtcQueuePromise__;
+}
+
 async function roster(sql: Sql, room: string): Promise<PeerRow[]> {
   const rows = await sql.query<{ peer_id: string; name: string }>(
     `SELECT peer_id, name FROM webrtc_peers
@@ -89,7 +119,75 @@ async function prune(sql: Sql) {
     sql.query(`DELETE FROM webrtc_peers WHERE last_seen < now() - make_interval(secs => $1)`, [
       PEER_TTL_SECONDS,
     ]),
+    sql.query(`DELETE FROM webrtc_queue WHERE last_seen < now() - make_interval(secs => $1)`, [60]),
   ]);
+}
+
+/** Pair two fresh SATARANGA Blitz waiters onto one room. Game traffic stays on the existing relay. */
+async function pairBlitz(sql: Sql, peer: string, name: string): Promise<{ status: "waiting" | "matched"; room?: string }> {
+  await ensureQueue(sql);
+  const label = name.slice(0, 64);
+  await sql.query(
+    `INSERT INTO webrtc_queue (queue_id, peer_id, name, last_seen)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (queue_id, peer_id)
+     DO UPDATE SET last_seen = now(), name = EXCLUDED.name`,
+    [BLITZ_QUEUE, peer, label],
+  );
+
+  const mine = await sql.query<{ room: string | null }>(
+    `SELECT room FROM webrtc_queue WHERE queue_id = $1 AND peer_id = $2`,
+    [BLITZ_QUEUE, peer],
+  );
+  const existing = mine[0]?.room ?? null;
+  if (existing) {
+    const mates = await sql.query<{ n: number }>(
+      `SELECT count(*) AS n FROM webrtc_queue
+       WHERE queue_id = $1 AND room = $2 AND peer_id <> $3
+         AND last_seen > now() - make_interval(secs => $4)`,
+      [BLITZ_QUEUE, existing, peer, 45],
+    );
+    if (Number(mates[0]?.n ?? 0) > 0) return { status: "matched", room: existing };
+    await sql.query(`UPDATE webrtc_queue SET room = NULL WHERE queue_id = $1 AND peer_id = $2 AND room = $3`, [
+      BLITZ_QUEUE,
+      peer,
+      existing,
+    ]);
+  }
+
+  const others = await sql.query<{ peer_id: string }>(
+    `SELECT peer_id FROM webrtc_queue
+     WHERE queue_id = $1 AND peer_id <> $2 AND room IS NULL
+       AND last_seen > now() - make_interval(secs => $3)
+     ORDER BY last_seen ASC
+     LIMIT 1`,
+    [BLITZ_QUEUE, peer, 20],
+  );
+  const other = others[0]?.peer_id;
+  if (!other) return { status: "waiting" };
+
+  const room = pairRoom(peer, other);
+  const updated = await sql.query<{ peer_id: string }>(
+    `UPDATE webrtc_queue
+     SET room = $1, last_seen = now()
+     WHERE queue_id = $2 AND room IS NULL AND peer_id IN ($3, $4)
+     RETURNING peer_id`,
+    [room, BLITZ_QUEUE, peer, other],
+  );
+  if (updated.length === 2) return { status: "matched", room };
+  if (updated.length === 1) {
+    await sql.query(
+      `UPDATE webrtc_queue SET room = NULL
+       WHERE queue_id = $1 AND room = $2 AND peer_id IN ($3, $4)`,
+      [BLITZ_QUEUE, room, peer, other],
+    );
+  }
+  const again = await sql.query<{ room: string | null }>(
+    `SELECT room FROM webrtc_queue WHERE queue_id = $1 AND peer_id = $2`,
+    [BLITZ_QUEUE, peer],
+  );
+  if (again[0]?.room) return { status: "matched", room: again[0].room };
+  return { status: "waiting" };
 }
 
 function json(body: unknown, status = 200): Response {
@@ -118,6 +216,7 @@ async function handleGet(url: URL): Promise<Response> {
 
   const sql = await getSql();
   await ensureSchema(sql);
+  await ensureQueue(sql);
   if (since === 0 || Math.random() < 0.02) await prune(sql);
   await touchPeer(sql, room, peer, name);
   const rows = await sql.query<{
@@ -155,6 +254,7 @@ async function handlePost(request: Request): Promise<Response> {
   const msg = parsed.data;
   const sql = await getSql();
   await ensureSchema(sql);
+  await ensureQueue(sql);
 
   if (msg.op === "signal") {
     await sql.query(
@@ -162,10 +262,18 @@ async function handlePost(request: Request): Promise<Response> {
        VALUES ($1, $2, $3, $4, $5)`,
       [msg.room, msg.to, msg.from, msg.kind, JSON.stringify(msg.payload)],
     );
-  } else {
-    await sql.query(`DELETE FROM webrtc_peers WHERE room = $1 AND peer_id = $2`, [msg.room, msg.peer]);
+    return json({ ok: true });
   }
-  return json({ ok: true });
+  if (msg.op === "leave") {
+    await sql.query(`DELETE FROM webrtc_peers WHERE room = $1 AND peer_id = $2`, [msg.room, msg.peer]);
+    return json({ ok: true });
+  }
+  if (msg.op === "unpair") {
+    await ensureQueue(sql);
+    await sql.query(`DELETE FROM webrtc_queue WHERE queue_id = $1 AND peer_id = $2`, [BLITZ_QUEUE, msg.peer]);
+    return json({ ok: true });
+  }
+  return json(await pairBlitz(sql, msg.peer, msg.name));
 }
 
 export async function handleSignaling(request: Request): Promise<Response> {

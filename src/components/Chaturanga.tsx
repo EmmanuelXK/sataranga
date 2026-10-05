@@ -167,7 +167,7 @@ function fmtLead(quarters: number): string {
 }
 
 function startClocks(launch: Launch): Record<Color, number> {
-  if (launch.kind === "resume" || launch.kind === "chaturaja") return { w: 0, b: 0 };
+  if (launch.kind === "resume" || launch.kind === "chaturaja" || launch.kind === "prep") return { w: 0, b: 0 };
   if (launch.clocks) return { w: launch.clocks.w, b: launch.clocks.b };
   const ms = launch.pace ? PACE_MS[launch.pace] : 0;
   return { w: ms, b: ms };
@@ -237,6 +237,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       setReady(true);
       return;
     }
+    if (launch.kind === "prep" || launch.kind === "chaturaja") return;
     if (launch.kind === "live") {
       setGame({ ...FRESH, mode: "live", names: { w: "White", b: "Black" }, bottom: "w" });
       setPly(0);
@@ -605,9 +606,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       ? `Computer · ${ENGINES[game.level].name}`
       : game.mode === "live"
         ? launch.kind === "live"
-          ? liveStatus === "play"
-            ? `Live · ${launch.room}`
-            : `Table ${launch.room} · waiting`
+          ? launch.auto
+            ? liveStatus === "play"
+              ? "Blitz · 3+2"
+              : "Blitz · connecting"
+            : liveStatus === "play"
+              ? `Live · ${launch.room}`
+              : `Table ${launch.room} · waiting`
           : "Live table"
         : game.bottom
           ? "Pass & play · board locked"
@@ -642,14 +647,20 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 
       {game.mode === "live" && launch.kind === "live" && liveStatus !== "play" && (
         <div className="wait-card">
-          <p className="eyebrow">{liveStatus === "failed" ? "No connection" : "Private table"}</p>
-          <p className="wait-code">{launch.room}</p>
+          <p className="eyebrow">
+            {liveStatus === "failed" ? "No connection" : launch.auto ? "SATARANGA Blitz" : "Private table"}
+          </p>
+          {!launch.auto && <p className="wait-code">{launch.room}</p>}
           <p className="card-copy">
             {liveStatus === "failed"
-              ? "This table did not connect. Go back to the lobby and try the code again."
-              : "Share this code with one friend. The board starts when they join. Unrated, and there is no referee."}
+              ? launch.auto
+                ? "This Blitz game did not connect. Go back and look for another player."
+                : "This table did not connect. Go back to the lobby and try the code again."
+              : launch.auto
+                ? "Connecting you with whoever was waiting. 3+2. The board starts when they arrive."
+                : "Share this code with one friend. The board starts when they join. Unrated, and there is no referee."}
           </p>
-          {liveStatus !== "failed" && (
+          {liveStatus !== "failed" && !launch.auto && (
             <button
               type="button"
               className="play-second"

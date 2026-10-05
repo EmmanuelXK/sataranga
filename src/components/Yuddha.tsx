@@ -231,6 +231,22 @@ function Camp({
             {lockNote && !proOpen && (
               <p className="yd-fine">Unlock with 5 wins in SATARANGA and 5 wins in SENAA.</p>
             )}
+            <ModeCard
+              title="COMING SOON"
+              copy="A later board. Not playable yet."
+              tone="mute"
+              times={["Soon", "Later"]}
+              locked
+              disabled
+            />
+            <ModeCard
+              title="COMING SOON"
+              copy="Another later board. Not playable yet."
+              tone="mute"
+              times={["Soon", "Later"]}
+              locked
+              disabled
+            />
           </>
         )}
 
@@ -418,20 +434,22 @@ function ModeCard({
   art,
   times,
   locked,
+  disabled,
   onClick,
 }: {
   title: string;
   copy: string;
-  tone: "coral" | "gold" | "green";
-  art: string;
+  tone: "coral" | "gold" | "green" | "mute";
+  art?: string;
   times: [string, string];
   locked?: boolean;
-  onClick: () => void;
+  disabled?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <button type="button" className="mode" onClick={onClick}>
+    <button type="button" className={clsx("mode", disabled && "soon")} disabled={disabled} onClick={onClick}>
       <span className={clsx("mode-art", tone)}>
-        <img src={art} alt="" />
+        {art ? <img src={art} alt="" /> : <Lock strokeWidth={1.75} />}
       </span>
       <span className="mode-copy">
         <strong>

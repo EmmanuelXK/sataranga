@@ -224,4 +224,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   background: #e2b340;
 }
 .prep-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mode-art.mute { background: #2a2a2e; color: #8e8e93; }
+.mode-art.mute svg { width: 28px; height: 28px; }
+.mode.soon:disabled { opacity: 0.72; }
 

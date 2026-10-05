@@ -259,13 +259,14 @@ function Camp({
               </div>
             </header>
             <p className="yd-copy">Win the head in front of you. Each one searches harder. No rating change.</p>
-            <ol className="head-list">
+            <ol className="road" style={{ ["--fallen" as string]: Math.min(profile.heads, 9) }}>
               {Array.from({ length: 10 }, (_, i) => {
                 const n = i + 1;
                 const open = n === profile.heads + 1;
                 const done = n <= profile.heads;
+                const side = n % 2 === 1 ? "left" : "right";
                 return (
-                  <li key={n}>
+                  <li key={n} className={clsx("road-stop", side, done && "done", open && "now", !done && !open && "locked")}>
                     <button
                       type="button"
                       disabled={!open}
@@ -280,11 +281,24 @@ function Camp({
                         })
                       }
                     >
-                      <span className={clsx("head-mark", done && "done", open && "open")}>{done ? "✓" : n}</span>
-                      <span>
-                        <strong>{headName(n)}</strong>
-                        <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
+                      {side === "right" && <span className="road-gap" />}
+                      {side === "left" && (
+                        <span className="road-card">
+                          <strong>{headName(n)}</strong>
+                          <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
+                        </span>
+                      )}
+                      <span className="road-node">
+                        <img src={`/art/heads/${headName(n).toLowerCase()}.jpg`} alt="" />
+                        <i>{done ? "✓" : n}</i>
                       </span>
+                      {side === "right" && (
+                        <span className="road-card">
+                          <strong>{headName(n)}</strong>
+                          <em>{done ? "Fallen" : open ? `${ENGINES[headLevel(n)].name} · ready` : "Locked"}</em>
+                        </span>
+                      )}
+                      {side === "left" && <span className="road-gap" />}
                     </button>
                   </li>
                 );

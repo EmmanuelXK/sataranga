@@ -24,18 +24,57 @@ No extra provider. Create and Sign in call `signUp` / `signInWithPassword`. The 
 
 ## Google
 
-Already enabled on this project (`external.google: true`). It is configured in Supabase → Authentication → Providers → Google, not with `GOOGLE_CLIENT_*` on SATARANGA.
+Continue with Google calls `supabase.auth.signInWithOAuth({ provider: "google" })` on this shared project. It does not use `GROK_AUTH_*`, Better Auth, or a Google client stored in SATARANGA.
 
-Google’s redirect URI is the Supabase callback, not this app:
+Supabase then sends the player to Google with this client id:
 
-`https://sphswtyzxaanjcibnnln.supabase.co/auth/v1/callback`
+`129009373354-97cc4lospcgmdr6sbjt1i2l2a0imnh1j.apps.googleusercontent.com`
 
-In Supabase → Authentication → URL Configuration, add every SATARANGA origin players return to (the preview URL changes per deploy; add the stable production origin too):
+Google currently answers `deleted_client`: “The OAuth client was deleted.” That is the same failure Yuddha.Pro shows. The redirect URI on that request is already the Supabase callback, and these return URLs are already accepted by the project:
 
-- `https://YOUR_SATARANGA_HOST/login`
+- `https://sataranga.vercel.app/login`
+- `https://sataranga-blitzbar.vercel.app/login`
+- `https://sataranga-git-cursor-sataranga-audit-fixes-ded9-blitzbar.vercel.app/login`
 - `http://localhost:8080/login`
 
-Site URL can stay the Yuddha.Pro origin. Extra redirect URLs are enough.
+Yuddha.Pro returns to `https://yuddha.pro/` (the site root). Adding allow-list rows does not revive a deleted Google client. No new client secret belongs in this repo.
+
+### Restore the existing client
+
+Do this first. If Google still has the client, the id and secret already saved in Supabase start working again. No SATARANGA redeploy.
+
+1. Open [Google Auth Platform → Clients](https://console.cloud.google.com/auth/clients?project=129009373354) for project number `129009373354`.
+2. Open **Deleted credentials** (clients deleted in the last 30 days).
+3. Restore the client whose id is `129009373354-97cc4lospcgmdr6sbjt1i2l2a0imnh1j.apps.googleusercontent.com`.
+4. Confirm its authorized redirect URI is exactly `https://sphswtyzxaanjcibnnln.supabase.co/auth/v1/callback`.
+
+A client deleted more than 30 days ago cannot be restored.
+
+### If it cannot be restored, create a replacement
+
+1. On that same Clients page, click **Create client**.
+2. Application type: **Web application**.
+3. Name: `YUDO` (one client for Yuddha.Pro and SATARANGA).
+4. Authorized redirect URI — this one only:
+
+   `https://sphswtyzxaanjcibnnln.supabase.co/auth/v1/callback`
+
+   Do not put `https://yuddha.pro/` or a SATARANGA `/login` URL here. Those are return URLs inside Supabase, not Google’s redirect.
+5. Create the client. Copy the **Client ID** and the **Client secret** immediately. Google shows the secret once. Do not commit either value.
+6. Supabase → project `sphswtyzxaanjcibnnln` → **Authentication** → **Sign In / Providers** → **Google**.
+7. Leave Google enabled. Replace Client ID and Client Secret with the new pair. Save.
+
+### Return URLs to keep in Supabase
+
+Supabase → **Authentication** → **URL Configuration** → **Redirect URLs**. Site URL can stay the Yuddha.Pro origin. Add:
+
+- `https://yuddha.pro/**`
+- `https://sataranga.vercel.app/**`
+- `https://sataranga-blitzbar.vercel.app/**`
+- `https://sataranga-git-cursor-sataranga-audit-fixes-ded9-blitzbar.vercel.app/**`
+- `http://localhost:8080/**`
+
+Changing the Google client in Supabase does not require a SATARANGA redeploy. A redeploy is required only when `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` was missing on that deployment.
 
 ## X
 

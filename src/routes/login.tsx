@@ -88,7 +88,10 @@ function Login() {
     if (!supabase) return;
     const { error: signError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/login` },
+      options: {
+        redirectTo: `${window.location.origin}/login`,
+        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
+      },
     });
     if (signError) setOauthError(signError.message);
   }

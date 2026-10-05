@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { SignedIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authEnabled } from "@/lib/auth/client";
 import { getSupabase, loadAuthProviders, supabaseConfigured, type AuthProviders } from "@/lib/supabase/client";
+
+const ENTER_KEY = "sataranga-enter";
+const SEEN_KEY = "yuddha-seen-v1";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -36,6 +38,20 @@ function Login() {
       live = false;
     };
   }, [ready]);
+
+  useEffect(() => {
+    if (isPending || !user) return;
+    try {
+      sessionStorage.setItem(ENTER_KEY, "1");
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      /* private browsing still continues into the hub */
+    }
+    const timer = window.setTimeout(() => {
+      void navigate({ to: "/" });
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [isPending, user, navigate]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -74,7 +90,6 @@ function Login() {
           return;
         }
       }
-      await navigate({ to: "/" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "That account did not open.");
     } finally {
@@ -96,34 +111,26 @@ function Login() {
     if (signError) setOauthError(signError.message);
   }
 
+  const entering = isPending || Boolean(user);
+
   return (
     <main className="yd">
-      <div className="yd-welcome login-screen">
+      <div className={`yd-welcome login-screen${entering ? " login-leave" : ""}`}>
         <p className="yd-kicker brand-kicker">Old Ceylon Chess</p>
         <h1 className="yd-logo">SATARANGA</h1>
-        <p className="yd-lead">
-          Your account.
-          <br />
-          Your rating stays with it.
-        </p>
-        <p className="login-duo">
-          This is a Yuddha.Pro company account. It works in both apps. Each game keeps its own progress. Guest play stays on this device.
-        </p>
-        {isPending ? (
-          <p className="yd-fine">Checking your account…</p>
+        {entering ? (
+          <p className="yd-fine login-opening">{user ? "Opening SATARANGA" : "Checking your account…"}</p>
         ) : authEnabled ? (
           <>
-            <SignedIn>
-              <div className="login-user">
-                <UserButton />
-              </div>
-              <Link to="/" className="yd-play login-home">
-                Back to the war room
-              </Link>
-            </SignedIn>
-            {!user && (
-              <>
-                <div className="seg3 login-seg" role="tablist">
+            <p className="yd-lead">
+              Your account.
+              <br />
+              Your rating stays with it.
+            </p>
+            <p className="login-duo">
+              This is a Yuddha.Pro company account. It works in both apps. Each game keeps its own progress. Guest play stays on this device.
+            </p>
+            <div className="seg3 login-seg" role="tablist">
                   <button type="button" role="tab" aria-selected={mode === "up"} className={mode === "up" ? "on" : ""} onClick={() => setMode("up")}>
                     Create
                   </button>
@@ -198,13 +205,11 @@ function Login() {
                   ) : null}
                   {oauthError ? <p className="login-error">{oauthError}</p> : null}
                 </div>
-              </>
-            )}
           </>
         ) : (
           <p className="yd-fine">Sign-in is not available.</p>
         )}
-        {!user && (
+        {!entering && (
           <Link to="/" className="login-quiet">
             Play as a guest
           </Link>

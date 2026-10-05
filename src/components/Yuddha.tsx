@@ -9,19 +9,43 @@ import { readPieceSet, writePieceSet, type PieceSet } from "@/game/chaturaji";
 import { loadCareer, saveName } from "@/game/career";
 import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, mahaUnlocked, rankProgress, todayKey, type Profile } from "@/game/profile";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user";
 
 type Tab = "war" | "yuddha" | "heads" | "profile";
 
 const SEEN = "yuddha-seen-v1";
 
 export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
+  const { user } = useCurrentUserState();
+  const signedIn = Boolean(user && !user.isDevFallback);
   const [welcome, setWelcome] = useState(() => {
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem(SEEN) !== "1";
   });
+  const [enter, setEnter] = useState(false);
   const [tab, setTab] = useState<Tab>("war");
-  if (welcome) {
+  useEffect(() => {
+    if (typeof sessionStorage === "undefined") return;
+    if (sessionStorage.getItem("sataranga-enter") !== "1") return;
+    sessionStorage.removeItem("sataranga-enter");
+    try {
+      localStorage.setItem(SEEN, "1");
+    } catch {
+      /* the hub still opens */
+    }
+    setWelcome(false);
+    setEnter(true);
+  }, []);
+  useEffect(() => {
+    if (!signedIn) return;
+    try {
+      localStorage.setItem(SEEN, "1");
+    } catch {
+      /* guest welcome stays available next time */
+    }
+    setWelcome(false);
+  }, [signedIn]);
+  if (welcome && !signedIn) {
     return (
       <Welcome
         onPlay={() => {
@@ -31,7 +55,7 @@ export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
       />
     );
   }
-  return <Camp tab={tab} setTab={setTab} onPlay={onPlay} />;
+  return <Camp tab={tab} setTab={setTab} onPlay={onPlay} enter={enter} />;
 }
 
 function Welcome({ onPlay }: { onPlay: () => void }) {
@@ -74,10 +98,12 @@ function Camp({
   tab,
   setTab,
   onPlay,
+  enter,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   onPlay: (launch: Launch) => void;
+  enter: boolean;
 }) {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
   const [pieceSet, setPieceSet] = useState<PieceSet>(readPieceSet);
@@ -100,14 +126,14 @@ function Camp({
   const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
 
   return (
-    <main className={clsx("yd", tab === "heads" && "yd-lock")}>
+    <main className={clsx("yd", tab === "heads" && "yd-lock", enter && "yd-enter")}>
       <div className={clsx("yd-body", tab === "heads" && "heads-fit")}>
         {tab === "war" && (
           <>
             <header className="yd-head">
               <div>
                 <p className="yd-kicker">{day} · Old Ceylon Chess</p>
-                <h1>War Room</h1>
+                <h1 className="hub-name">SATARANGA</h1>
               </div>
               <div className="yd-head-side">
                 <span className="rating-pill">
@@ -126,7 +152,7 @@ function Camp({
             <section className="hero-card">
               <div>
                 <span className="pill">Blitz · 3+2</span>
-                <h2>Ashtapadha</h2>
+                <h2>SATARANGA</h2>
                 <p>Ranked · 3:00 + 2s</p>
                 <button type="button" className="hero-battle" onClick={() => onPlay({ kind: "solo", human: "w", level: profile.rating < 380 ? 1 : 2, clocks: pairClocks("blitz"), increment: TIME_CONTROL.blitz.inc, rated: true })}>
                   <Swords strokeWidth={2.25} /> Battle
@@ -199,7 +225,7 @@ function Camp({
             </header>
             <ModeCard
               title="SATARANGA"
-              copy="Ashtapadha. Classic 8×8."
+              copy="Classic 8×8."
               tone="coral"
               art="/art/ashta.png"
               times={["Blitz", "Rapid"]}
@@ -348,7 +374,7 @@ function Camp({
         )}
       </div>
       <nav className="tabbar">
-        <TabBtn id="war" tab={tab} setTab={setTab} icon={<Castle strokeWidth={1.75} />} label="War Room" />
+        <TabBtn id="war" tab={tab} setTab={setTab} icon={<Castle strokeWidth={1.75} />} label="SATARANGA" />
         <TabBtn id="yuddha" tab={tab} setTab={setTab} icon={<Swords strokeWidth={1.75} />} label="Play" />
         <TabBtn id="heads" tab={tab} setTab={setTab} icon={<Crown strokeWidth={1.75} />} label="Ten Heads" />
         <TabBtn id="profile" tab={tab} setTab={setTab} icon={<UserRound strokeWidth={1.75} />} label="Profile" />
@@ -401,6 +427,9 @@ function ProfileCard({ profile }: { profile: Profile }) {
         </span>
       </div>
       <p className="profile-note">Ranked games only move the number. Win +18. Loss −12.</p>
+      <p className="login-duo profile-duo">
+        This is a Yuddha.Pro company account. It works in both apps. Each game keeps its own progress. Guest play stays on this device.
+      </p>
       <SignedIn>
         <div className="login-user">
           <UserButton />

@@ -835,7 +835,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           : headline(end, game.names)}
       </p>
 
-      <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="Ashtapadha. Locked. Old Ceylon Chaturanga.">
+      <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="SATARANGA. Locked. Old Ceylon Chaturanga.">
         <ul className="rules">
           {(Object.keys(PIECE_META) as PieceType[]).map((type) => (
             <li key={type}>
@@ -857,7 +857,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           <p>Checkmate wins. Stalemate is a loss for the player who cannot move.</p>
           <p>Bare Raja wins at once, unless the bare side can bare you on the next move — that is a draw.</p>
           <p>Threefold repetition is a draw.</p>
-          <p>Ashtapadha. Locked. No castling, not even in two moves. No en passant.</p>
+          <p>SATARANGA. Locked. No castling, not even in two moves. No en passant.</p>
         </div>
       </Sheet>
 
@@ -972,7 +972,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           </div>
         </Field>
         <Field label="Rules">
-          <p className="side-note">Ashtapadha. Locked. Chaturanga. Chathuraja is a different game.</p>
+          <p className="side-note">SATARANGA. Locked. Chathuraja is a different game.</p>
         </Field>
         <Field label="Pieces">
           <p className="side-note">NEO CEYLON. Locked. Raja, Mantri, Gaja, Ashva, Ratha, and Hewa.</p>

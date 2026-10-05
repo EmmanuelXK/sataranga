@@ -77,7 +77,7 @@ export function Prep({
           </button>
           <div>
             <h1 className="wordmark">{title}</h1>
-            <p className="sub">{game === "sena" ? "Chathuraja" : "Ashtapadha"}</p>
+            <p className="sub">{game === "sena" ? "Chathuraja" : game === "pro" ? "Raja engine" : "SATARANGA"}</p>
           </div>
         </div>
       </header>

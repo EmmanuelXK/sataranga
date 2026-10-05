@@ -4,15 +4,16 @@ import { clsx } from "clsx";
 import { Castle, Crown, Dices, Lock, Swords, UserRound, Users } from "lucide-react";
 import { ENGINES, type Color, type Level } from "@/game/engine";
 import { PieceGlyph } from "@/components/pieces";
-import { roomCode, MODE_CLOCKS, type Launch } from "@/game/launch";
+import { pairClocks, roomCode, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
 import { readPieceSet, writePieceSet, type PieceSet } from "@/game/chaturaji";
 import { loadCareer, saveName } from "@/game/career";
-import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, rankProgress, todayKey, type Profile } from "@/game/profile";
+import { claimDaily, headLevel, headName, hydrateAccount, loadProfile, mahaUnlocked, rankProgress, todayKey, type Profile } from "@/game/profile";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 
-type Tab = "war" | "yuddha" | "heads" | "friends" | "profile";
+type Tab = "war" | "yuddha" | "heads" | "profile";
 type Mode = "ashta" | "chaturaja" | "pro";
+type Seat = "bots" | "online" | "war";
 
 const SEEN = "yuddha-seen-v1";
 
@@ -41,16 +42,12 @@ function Welcome({ onPlay }: { onPlay: () => void }) {
       <div className="yd-welcome">
         <div className="vs-stage">
           <article className="vs-card lanka">
-            <span className="vs-tag">
-              <Hare /> Lanka
-            </span>
+            <span className="vs-tag">Lanka</span>
             <img className="king-shot" src="/art/lanka.png" alt="" />
           </article>
           <span className="vs-badge">vs</span>
           <article className="vs-card ayodhya">
-            <span className="vs-tag">
-              <Tortoise /> Ayodhya
-            </span>
+            <span className="vs-tag">Ayodhya</span>
             <img className="king-shot" src="/art/ayodhya.png" alt="" />
           </article>
         </div>
@@ -85,8 +82,10 @@ function Camp({
   onPlay: (launch: Launch) => void;
 }) {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
-  const [lane, setLane] = useState<"ranked" | "casual" | "friend">("ranked");
   const [mode, setMode] = useState<Mode>("ashta");
+  const [time, setTime] = useState<TimeControl>("blitz");
+  const [seat, setSeat] = useState<Seat>("bots");
+  const [rated, setRated] = useState(true);
   const [dice, setDice] = useState(true);
   const [pieceSet, setPieceSet] = useState<PieceSet>(readPieceSet);
   const [hands, setHands] = useState<"bots" | "table">("bots");
@@ -104,18 +103,20 @@ function Camp({
   const name = loadCareer().name;
   const rank = rankProgress(profile.rating);
   const title = rank.title;
-  const proOpen = profile.rating >= 450 || profile.heads >= 4;
+  const proOpen = mahaUnlocked(profile);
+  const tc = TIME_CONTROL[time];
+  const clocks = pairClocks(time);
   const nextHead = Math.min(10, profile.heads + 1);
   const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
 
   function battle() {
-    if (lane === "friend") {
-      setTab("friends");
-      return;
-    }
     if (mode === "pro" && !proOpen) return;
     if (mode === "chaturaja") {
       onPlay({ kind: "chaturaja", dice, hands });
+      return;
+    }
+    if (seat === "war") {
+      onPlay({ kind: "pvp", clocks, increment: tc.inc });
       return;
     }
     const level: Level =
@@ -125,8 +126,9 @@ function Camp({
       kind: "solo",
       human,
       level,
-      clocks: lane === "casual" ? undefined : MODE_CLOCKS[mode],
-      rated: lane === "ranked",
+      clocks,
+      increment: tc.inc,
+      rated,
       strict: mode === "pro",
     });
   }
@@ -157,12 +159,10 @@ function Camp({
             </header>
             <section className="hero-card">
               <div>
-                <span className="pill">
-                  <Hare /> You're the Hare
-                </span>
+                <span className="pill">Blitz · 3+2</span>
                 <h2>Ashtapadha</h2>
-                <p>Ranked · 3:00 vs 5:00</p>
-                <button type="button" className="hero-battle" onClick={() => onPlay({ kind: "solo", human: "w", level: profile.rating < 380 ? 1 : 2, clocks: MODE_CLOCKS.ashta, rated: true })}>
+                <p>Ranked · 3:00 + 2s</p>
+                <button type="button" className="hero-battle" onClick={() => onPlay({ kind: "solo", human: "w", level: profile.rating < 380 ? 1 : 2, clocks: pairClocks("blitz"), increment: TIME_CONTROL.blitz.inc, rated: true })}>
                   <Swords strokeWidth={2.25} /> Battle
                 </button>
               </div>
@@ -224,7 +224,7 @@ function Camp({
                 <h2>A friend, one code</h2>
                 <p>No public ladder. Challenge someone you know.</p>
               </div>
-              <button type="button" className="quiet" onClick={() => setTab("friends")}>
+              <button type="button" className="quiet" onClick={() => setTab("profile")}>
                 Challenge
               </button>
             </section>
@@ -239,136 +239,109 @@ function Camp({
                 <h1>Play</h1>
               </div>
             </header>
-            <button type="button" className="yd-play pass-start" onClick={() => onPlay({ kind: "pvp" })}>
-              <Users strokeWidth={2.25} /> Pass & play
-            </button>
-            <p className="yd-fine">Same phone. The board flips after every move.</p>
-            <div className="seg3" role="tablist">
-              {(
-                [
-                  ["ranked", "Ranked"],
-                  ["casual", "Casual"],
-                  ["friend", "vs Friend"],
-                ] as const
-              ).map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={lane === id} className={clsx(lane === id && "on")} onClick={() => setLane(id)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {lane !== "friend" ? (
+            <ModeCard
+              on={mode === "ashta"}
+              title="SATARANGA"
+              copy="Ashtapadha. Classic 8×8."
+              tone="coral"
+              art="/art/ashta.png"
+              times={["Blitz", "Rapid"]}
+              onClick={() => setMode("ashta")}
+            />
+            <ModeCard
+              on={mode === "chaturaja"}
+              title="SENAA"
+              copy="Chathuraja. Four kings."
+              tone="gold"
+              art="/art/sena.png"
+              times={["4 kings", dice ? "Dice" : "Free"]}
+              onClick={() => setMode("chaturaja")}
+            />
+            <ModeCard
+              on={mode === "pro"}
+              title="MAHA YUDDHA"
+              copy={proOpen ? "Raja engine. No takebacks." : `${profile.wins}/5 SATARANGA · ${profile.senaWins ?? 0}/5 SENAA`}
+              tone="green"
+              art="/art/pro.png"
+              times={["Blitz", "Rapid"]}
+              locked={!proOpen}
+              onClick={() => setMode("pro")}
+            />
+            {mode === "chaturaja" ? (
               <>
-                <ModeCard
-                  on={mode === "ashta"}
-                  title="Ashtapadha"
-                  copy="Classic 8×8. Quick and sharp."
-                  tone="coral"
-                  art="/art/ashta.png"
-                  times={["3:00", "5:00"]}
-                  onClick={() => setMode("ashta")}
-                />
-                <ModeCard
-                  on={mode === "chaturaja"}
-                  title="Chathuraja"
-                  copy="Four kings. A die, or a free move."
-                  tone="gold"
-                  art="/art/sena.png"
-                  times={["4 kings", dice ? "Dice" : "Free"]}
-                  onClick={() => setMode("chaturaja")}
-                />
-                <ModeCard
-                  on={mode === "pro"}
-                  title="Crown"
-                  copy={proOpen ? "Raja engine. No takebacks." : "For champions. No takebacks."}
-                  tone="green"
-                  art="/art/pro.png"
-                  times={["10:00", "15:00"]}
-                  locked={!proOpen}
-                  onClick={() => proOpen && setMode("pro")}
-                />
-                {mode === "chaturaja" ? (
-                  <>
-                    <div className="side-h">
-                      <p className="field-label">The die</p>
-                      <p className="field-note">Raja, Gaja, Ashva, Yathra</p>
-                    </div>
-                    <div className="pace-row">
-                      <button type="button" className={clsx("pace", dice && "on coral")} onClick={() => setDice(true)}>
-                        <Dices /> Dice on
-                      </button>
-                      <button type="button" className={clsx("pace", !dice && "on green")} onClick={() => setDice(false)}>
-                        Free move
-                      </button>
-                    </div>
-                    <div className="pace-row">
-                      <button
-                        type="button"
-                        className={clsx("pace", pieceSet === "retro" && "on coral")}
-                        onClick={() => {
-                          setPieceSet("retro");
-                          writePieceSet("retro");
-                        }}
-                      >
-                        Retro
-                      </button>
-                      <button
-                        type="button"
-                        className={clsx("pace", pieceSet === "neo" && "on green")}
-                        onClick={() => {
-                          setPieceSet("neo");
-                          writePieceSet("neo");
-                        }}
-                      >
-                        Neo
-                      </button>
-                    </div>
-                    <div className="pace-row">
-                      <button type="button" className={clsx("pace", hands === "bots" && "on coral")} onClick={() => setHands("bots")}>
-                        You vs three
-                      </button>
-                      <button type="button" className={clsx("pace", hands === "table" && "on green")} onClick={() => setHands("table")}>
-                        Four hands
-                      </button>
-                    </div>
-                    <button type="button" className="yd-battle" onClick={battle}>
-                      <Swords strokeWidth={2.25} /> Enter Chathuraja
-                    </button>
-                    <p className="yd-fine">RETRO CHATHURAJA. Same shapes, vintage enamel. NEO stays locked.</p>
-                  </>
-                ) : (
-                  <>
                 <div className="side-h">
-                  <p className="field-label">Your side</p>
-                  <p className="field-note">Auto-alternates each battle</p>
+                  <p className="field-label">The die</p>
+                  <p className="field-note">Raja, Gaja, Ashva, Yathra</p>
                 </div>
                 <div className="pace-row">
-                  <button type="button" className={clsx("pace", human === "w" && "on coral")} onClick={() => setHuman("w")}>
-                    <Hare /> Hare · {mode === "pro" ? "10:00" : "3:00"}
+                  <button type="button" className={clsx("pace", dice && "on coral")} onClick={() => setDice(true)}>
+                    <Dices /> Dice on
                   </button>
-                  <button type="button" className={clsx("pace", human === "b" && "on green")} onClick={() => setHuman("b")}>
-                    <Tortoise /> Tortoise · {mode === "pro" ? "15:00" : "5:00"}
+                  <button type="button" className={clsx("pace", !dice && "on green")} onClick={() => setDice(false)}>
+                    Free move
                   </button>
                 </div>
-                <button type="button" className="yd-battle" onClick={battle} disabled={mode === "pro" && !proOpen}>
-                  <Swords strokeWidth={2.25} /> Battle as {human === "w" ? "Hare" : "Tortoise"}
+                <div className="pace-row">
+                  <button type="button" className={clsx("pace", hands === "bots" && "on coral")} onClick={() => setHands("bots")}>
+                    You vs three
+                  </button>
+                  <button type="button" className={clsx("pace", hands === "table" && "on green")} onClick={() => setHands("table")}>
+                    Four hands
+                  </button>
+                </div>
+                <button type="button" className="yd-battle" onClick={battle}>
+                  <Swords strokeWidth={2.25} /> Enter SENAA
                 </button>
-                <p className="yd-fine">
-                  {lane === "ranked" ? (
-                    <>
-                      {ENGINES[mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4].name}{" "}
-                      plays the other side. Win +18. Loss −12.{" "}
-                      <SignedIn>Saved to your account.</SignedIn>
-                      <SignedOut>Sign in to keep it.</SignedOut>
-                    </>
-                  ) : (
-                    "Casual games are not rated."
-                  )}
-                </p>
-                  </>
-                )}
               </>
             ) : (
-              <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} />
+              <>
+                <div className="side-h">
+                  <p className="field-label">Time</p>
+                  <p className="field-note">{tc.name} · {tc.label}</p>
+                </div>
+                <div className="pace-row">
+                  <button type="button" className={clsx("pace", time === "blitz" && "on coral")} onClick={() => setTime("blitz")}>
+                    Blitz · 3+2
+                  </button>
+                  <button type="button" className={clsx("pace", time === "rapid" && "on green")} onClick={() => setTime("rapid")}>
+                    Rapid · 5+10
+                  </button>
+                </div>
+                <div className="pace-row">
+                  <button type="button" className={clsx("pace", seat === "bots" && rated && "on coral")} onClick={() => { setSeat("bots"); setRated(true); }}>
+                    Rated · bots
+                  </button>
+                  <button type="button" className={clsx("pace", seat === "bots" && !rated && "on green")} onClick={() => { setSeat("bots"); setRated(false); }}>
+                    Casual · bots
+                  </button>
+                </div>
+                <div className="pace-row">
+                  <button type="button" className={clsx("pace", seat === "online" && "on green")} onClick={() => setSeat("online")}>
+                    Online
+                  </button>
+                  <button type="button" className={clsx("pace", seat === "war" && "on coral")} onClick={() => setSeat("war")}>
+                    <Users strokeWidth={2.25} /> War
+                  </button>
+                </div>
+                {seat === "online" ? (
+                  <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} clocks={clocks} increment={tc.inc} />
+                ) : (
+                  <button type="button" className="yd-battle" onClick={battle} disabled={mode === "pro" && !proOpen}>
+                    <Swords strokeWidth={2.25} /> {seat === "war" ? "War · pass & play" : mode === "pro" ? "Enter MAHA YUDDHA" : "Battle"}
+                  </button>
+                )}
+                <p className="yd-fine">
+                  {mode === "pro" && !proOpen
+                    ? "Unlock with 5 wins in SATARANGA and 5 wins in SENAA."
+                    : seat === "war"
+                      ? "Same phone. The board flips after every move."
+                      : seat === "online"
+                        ? "One code. Unrated."
+                        : rated
+                          ? `${ENGINES[mode === "pro" ? 4 : profile.rating < 380 ? 1 : profile.rating < 520 ? 2 : profile.rating < 640 ? 3 : 4].name} plays the other side. Win +18. Loss −12.`
+                          : "Casual games are not rated."}
+                </p>
+              </>
             )}
           </>
         )}
@@ -397,7 +370,8 @@ function Camp({
                           kind: "solo",
                           human: "w",
                           level: headLevel(n),
-                          pace: "hare",
+                          clocks: pairClocks("blitz"),
+                          increment: TIME_CONTROL.blitz.inc,
                           head: n,
                         })
                       }
@@ -415,22 +389,6 @@ function Camp({
           </>
         )}
 
-        {tab === "friends" && (
-          <>
-            <header className="yd-head">
-              <div>
-                <p className="yd-kicker">Friends</p>
-                <h1>One table</h1>
-              </div>
-            </header>
-            <p className="yd-copy">Share a code with one person. This is a direct game, unrated, with no referee.</p>
-            <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} />
-            <button type="button" className="quiet wide" onClick={() => onPlay({ kind: "pvp" })}>
-              Pass & play on this device
-            </button>
-          </>
-        )}
-
         {tab === "profile" && (
           <>
             <header className="yd-head">
@@ -440,6 +398,38 @@ function Camp({
               </div>
             </header>
             <ProfileCard profile={profile} />
+            <section className="panel">
+              <div className="panel-h">
+                <h2>Piece set</h2>
+              </div>
+              <div className="pace-row">
+                <button
+                  type="button"
+                  className={clsx("pace", pieceSet === "retro" && "on coral")}
+                  onClick={() => {
+                    setPieceSet("retro");
+                    writePieceSet("retro");
+                  }}
+                >
+                  Retro
+                </button>
+                <button
+                  type="button"
+                  className={clsx("pace", pieceSet === "neo" && "on green")}
+                  onClick={() => {
+                    setPieceSet("neo");
+                    writePieceSet("neo");
+                  }}
+                >
+                  Neo
+                </button>
+              </div>
+            </section>
+            <section className="panel">
+              <h2>One table</h2>
+              <p>Share a code with one person. Unrated.</p>
+              <FriendTable name={name} join={join} setJoin={setJoin} onPlay={onPlay} />
+            </section>
             <Armory name={name} onName={(v) => saveName(v)} />
           </>
         )}
@@ -448,7 +438,6 @@ function Camp({
         <TabBtn id="war" tab={tab} setTab={setTab} icon={<Castle strokeWidth={1.75} />} label="War Room" />
         <TabBtn id="yuddha" tab={tab} setTab={setTab} icon={<Swords strokeWidth={1.75} />} label="Play" />
         <TabBtn id="heads" tab={tab} setTab={setTab} icon={<Crown strokeWidth={1.75} />} label="Ten Heads" />
-        <TabBtn id="friends" tab={tab} setTab={setTab} icon={<Users strokeWidth={1.75} />} label="Friends" />
         <TabBtn id="profile" tab={tab} setTab={setTab} icon={<UserRound strokeWidth={1.75} />} label="Profile" />
       </nav>
     </main>
@@ -563,7 +552,7 @@ function ModeCard({
           {title}
           {locked ? (
             <em>
-              <Lock strokeWidth={2} /> Senapati
+              <Lock strokeWidth={2} /> Locked
             </em>
           ) : on ? (
             <i className="tick" />
@@ -571,14 +560,8 @@ function ModeCard({
         </strong>
         <span>{copy}</span>
         <span className="chips">
-          <b>
-            <Hare />
-            {times[0]}
-          </b>
-          <b>
-            <Tortoise />
-            {times[1]}
-          </b>
+          <b>{times[0]}</b>
+          <b>{times[1]}</b>
         </span>
       </span>
     </button>
@@ -590,11 +573,15 @@ function FriendTable({
   join,
   setJoin,
   onPlay,
+  clocks,
+  increment,
 }: {
   name: string;
   join: string;
   setJoin: (v: string) => void;
   onPlay: (launch: Launch) => void;
+  clocks?: ReturnType<typeof pairClocks>;
+  increment?: number;
 }) {
   return (
     <section className="panel">
@@ -609,7 +596,7 @@ function FriendTable({
       <button
         type="button"
         className="yd-battle"
-        onClick={() => onPlay({ kind: "live", room: roomCode(), name: name.trim() || "You" })}
+        onClick={() => onPlay({ kind: "live", room: roomCode(), name: name.trim() || "You", clocks, increment })}
       >
         Open a table
       </button>
@@ -619,7 +606,7 @@ function FriendTable({
           e.preventDefault();
           const room = join.trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
           if (room.length < 4) return;
-          onPlay({ kind: "live", room, name: name.trim() || "You" });
+          onPlay({ kind: "live", room, name: name.trim() || "You", clocks, increment });
         }}
       >
         <input value={join} placeholder="Enter a code" aria-label="Table code" maxLength={12} onChange={(e) => setJoin(e.target.value)} />
@@ -655,20 +642,4 @@ function Armory({ name, onName }: { name: string; onName: (v: string) => void })
   );
 }
 
-function Hare() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="critter">
-      <path fill="currentColor" d="M7 4c1 2 1 4 .5 6M12 3c.2 2-.2 4-1 6M6 14c0-3 2.2-5 6-5s6 2 6 5-2 6-6 6-6-3-6-6z" />
-    </svg>
-  );
-}
-
-function Tortoise() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="critter">
-      <ellipse cx="12" cy="14" rx="6" ry="4.5" fill="currentColor" />
-      <circle cx="17.2" cy="13" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
 

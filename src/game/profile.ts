@@ -44,6 +44,8 @@ export type Profile = {
   heads: number;
   streak: number;
   lastClaim: string;
+  /** SENAA (Chathuraja) wins. Missing on older saves. */
+  senaWins?: number;
 };
 
 const HEADS = [
@@ -71,7 +73,7 @@ export function headLevel(n: number): 1 | 2 | 3 | 4 {
 }
 
 function fresh(): Profile {
-  return { v: 1, coins: 0, rating: 400, wins: 0, losses: 0, draws: 0, heads: 0, streak: 0, lastClaim: "" };
+  return { v: 1, coins: 0, rating: 400, wins: 0, losses: 0, draws: 0, heads: 0, streak: 0, lastClaim: "", senaWins: 0 };
 }
 
 export function loadProfile(): Profile {
@@ -88,6 +90,7 @@ export function loadProfile(): Profile {
     base.heads = Math.min(10, Number(data.heads) || 0);
     base.streak = Number(data.streak) || 0;
     base.lastClaim = typeof data.lastClaim === "string" ? data.lastClaim : "";
+    base.senaWins = Number(data.senaWins) || 0;
     return base;
   } catch {
     return fresh();
@@ -171,7 +174,7 @@ export async function hydrateAccount(): Promise<Profile | null> {
       enqueuePush(local);
       return local;
     }
-    return applyLocal({ v: 1, ...remote });
+    return applyLocal({ v: 1, ...remote, senaWins: local.senaWins ?? 0 });
   } catch {
     return null;
   }
@@ -226,6 +229,18 @@ export function claimDaily(): Profile {
   p.streak = p.lastClaim === yKey ? Math.min(7, p.streak + 1) : 1;
   p.lastClaim = today;
   p.coins += 15 + p.streak * 5;
+  return write(p);
+}
+
+/** MAHA YUDDHA opens after five SATARANGA wins and five SENAA wins. */
+export function mahaUnlocked(p: Pick<Profile, "wins" | "senaWins">): boolean {
+  return p.wins >= 5 && (p.senaWins ?? 0) >= 5;
+}
+
+/** A finished SENAA game where the player (Red, versus three) led. */
+export function noteSenaWin(): Profile {
+  const p = loadProfile();
+  p.senaWins = (p.senaWins ?? 0) + 1;
   return write(p);
 }
 

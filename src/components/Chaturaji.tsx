@@ -30,6 +30,7 @@ import {
   type PieceSet,
 } from "@/game/chaturaji";
 import { boardTheme, readBoard } from "@/game/boards";
+import { noteSenaWin } from "@/game/profile";
 import { playSound, unlockAudio } from "@/game/sound";
 import type { Launch } from "@/game/launch";
 
@@ -80,6 +81,16 @@ export function Chaturaji({
   const [shown, setShown] = useState<[Face | null, Face | null]>([null, null]);
   const gameRef = useRef(game);
   gameRef.current = game;
+  const senaNoted = useRef(false);
+  useEffect(() => {
+    if (!game.over) {
+      senaNoted.current = false;
+      return;
+    }
+    if (senaNoted.current || launch.hands !== "bots") return;
+    senaNoted.current = true;
+    if (leader(game) === "red") noteSenaWin();
+  }, [game, launch.hands]);
   const rollTimer = useRef<number | null>(null);
   useEffect(
     () => () => {

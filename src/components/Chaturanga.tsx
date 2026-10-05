@@ -392,6 +392,11 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     setLandSq(move.to);
     setGame((g) => ({ ...g, moves: [...g.moves, move], resigned: null }));
     setPly((p) => p + 1);
+    const bonus = launch.kind === "solo" || launch.kind === "pvp" || launch.kind === "live" ? launch.increment ?? 0 : 0;
+    if (bonus > 0) {
+      const side = fromPos.turn;
+      setClock((cur) => (cur[side] > 0 ? { ...cur, [side]: cur[side] + bonus } : cur));
+    }
     if (game.sound) {
       const kind =
         after.kind !== "ongoing" ? "end" : inCheck(next) ? "check" : move.captured ? "capture" : "move";

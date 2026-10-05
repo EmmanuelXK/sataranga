@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { pointInBoard } from "./boards.ts";
 import { resultStamp } from "./career.ts";
-import { claimDayValue, profileIsNewer, type Profile } from "./profile.ts";
+import { claimDayValue, mahaUnlocked, profileIsNewer, type Profile } from "./profile.ts";
 
 const row = (patch: Partial<Profile> = {}): Profile => ({
   v: 1,
@@ -29,6 +29,13 @@ test("a newer local record wins, an equal one does not", () => {
   assert.equal(profileIsNewer(row({ wins: 2, coins: 40, lastClaim: "2026-10-4" }), remote), true);
   assert.equal(profileIsNewer(row({ wins: 2, coins: 20, lastClaim: "2026-10-3" }), remote), false);
   assert.equal(profileIsNewer(row(), row({ wins: 1 })), false);
+});
+
+test("maha yuddha needs five wins in each game", () => {
+  assert.equal(mahaUnlocked(row({ wins: 5, senaWins: 4 })), false);
+  assert.equal(mahaUnlocked(row({ wins: 4, senaWins: 5 })), false);
+  assert.equal(mahaUnlocked(row()), false);
+  assert.equal(mahaUnlocked(row({ wins: 5, senaWins: 5 })), true);
 });
 
 test("finished games with the same result stay distinct", () => {

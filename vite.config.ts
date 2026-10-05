@@ -146,6 +146,9 @@ function authPopupPlugin(): Plugin {
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
 export default defineConfig(({ command, isPreview }) => ({
+  // Yuddha.Pro stores the shared Supabase URL and anon key under Next names.
+  // Vite only exposes prefixed vars, so those names have to be listed here.
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   server: {
     host: "0.0.0.0",
     port: 8080,

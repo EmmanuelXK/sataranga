@@ -38,7 +38,6 @@ import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
-import { googleOAuthFromEnv, xOAuthFromEnv } from "./oauth-env";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import {
@@ -143,9 +142,6 @@ const trustedOrigins: string[] = [
   ...(explicitBaseURL ? [explicitBaseURL] : []),
 ];
 
-const googleOAuth = googleOAuthFromEnv();
-const xOAuth = xOAuthFromEnv();
-
 const databaseUrl = env("DATABASE_URL");
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
@@ -218,8 +214,6 @@ export const auth = betterAuth({
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
         GATE_PROVIDER_ID,
-        ...(googleOAuth ? ["google"] : []),
-        ...(xOAuth ? ["twitter"] : []),
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
@@ -234,16 +228,8 @@ export const auth = betterAuth({
   session: { cookieCache: { enabled: true, maxAge: 300 } },
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
+  // The SATARANGA sign-in screen does not use this. It uses Supabase Auth.
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
-
-  // Owner's Google and X apps. Omitted until both id and secret are set, so a
-  // missing secret cannot mint a session. The broker buttons stay separate.
-  socialProviders: {
-    ...(googleOAuth
-      ? { google: { ...googleOAuth, prompt: "select_account" as const } }
-      : {}),
-    ...(xOAuth ? { twitter: xOAuth } : {}),
-  },
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

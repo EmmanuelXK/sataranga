@@ -1,77 +1,52 @@
 # Account setup
 
-Email, Google, and X sign-in use this app's Better Auth at `/api/auth/*`. Guest play does not create a user. Set the values in the Vercel project (Production and Preview). Do not commit them.
+SATARANGA signs in with **Supabase Auth** on the shared YUDO project (`sphswtyzxaanjcibnnln`), the same `auth.users` as Yuddha.Pro. Do not set `BETTER_AUTH_*` for this gate. Do not create a second Google client for SATARANGA.
 
-`YOUR_HOST` below is the site origin with no path, for example `https://sataranga.vercel.app`. Add the same paths for every host people actually sign in on, including a preview host such as `https://sataranga-abc123-blitzbar.vercel.app`, and `http://localhost:8080` if you test locally. The callback host is the host in the address bar.
+Copy these onto the SATARANGA Vercel project (Production and Preview), from the Yuddha.Pro Vercel project or from Supabase → Project Settings → API. Then redeploy.
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://sphswtyzxaanjcibnnln.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The anon key, or the publishable key (`sb_publishable_…`). `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is accepted as the same slot. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Not used by SATARANGA sign-in or progress. Do not put it in the client. |
+| `DATABASE_URL` / `POSTGRES_URL` | Not required for sign-in. Leave the existing app database if one is already set. Do not point the build’s `DATABASE_URL` at YUDO: the app migrate still carries an old Better Auth schema file and must not apply it to the shared project. |
+
+## What is shared
+
+- `auth.users`, identities, and sessions. A Yuddha.Pro account signs in here, and the reverse.
+- `public.profiles` is created by YUDO’s `handle_new_user` trigger (display name from `full_name` / `name`). SATARANGA does not overwrite that row.
+- `public.family_ratings` already seeds `sataranga`, `maha-sena`, and `yuddha-pro`. SATARANGA does not write those ratings.
+- SATARANGA progress (coins, rating, wins, heads, streak) is `public.sataranga_profile`, keyed by `auth.users.id`, with row security so a player can only read and write their own row. SQL is in `supabase/sataranga_profile.sql`. It is already applied on YUDO.
 
 ## Email and password
 
-| Variable | What to set |
-| --- | --- |
-| `BETTER_AUTH_SECRET` | Long random string. `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | `YOUR_HOST` |
-| `DATABASE_URL` | Postgres connection string for this app |
-
-No OAuth callback. Name, email, and password are stored in this app's `user` table. On Vercel, Create account and Sign in stay disabled until `BETTER_AUTH_SECRET` and `DATABASE_URL` are set, because a session cannot be kept without them.
+No extra provider. Create and Sign in call `signUp` / `signInWithPassword`. The project currently auto-confirms email. Name is stored as `full_name` so the shared profile trigger can show it.
 
 ## Google
 
-Google Cloud Console → APIs & Services → Credentials → OAuth client ID → Web application.
+Already enabled on this project (`external.google: true`). It is configured in Supabase → Authentication → Providers → Google, not with `GOOGLE_CLIENT_*` on SATARANGA.
 
-Authorized JavaScript origins:
+Google’s redirect URI is the Supabase callback, not this app:
 
-- `YOUR_HOST`
-- `http://localhost:8080`
+`https://sphswtyzxaanjcibnnln.supabase.co/auth/v1/callback`
 
-Authorized redirect URIs:
+In Supabase → Authentication → URL Configuration, add every SATARANGA origin players return to (the preview URL changes per deploy; add the stable production origin too):
 
-- `YOUR_HOST/api/auth/callback/google`
-- `http://localhost:8080/api/auth/callback/google`
+- `https://YOUR_SATARANGA_HOST/login`
+- `http://localhost:8080/login`
 
-| Variable | What to set |
-| --- | --- |
-| `GOOGLE_CLIENT_ID` | OAuth client id |
-| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
-
-Until both are set, Continue with Google stays disabled. It does not sign anyone in.
+Site URL can stay the Yuddha.Pro origin. Extra redirect URLs are enough.
 
 ## X
 
-[developer.x.com](https://developer.x.com) → your app → User authentication settings → OAuth 2.0, Web App. Allow the email permission if you want a real address (`users.email`).
+X is **not** enabled (`external.twitter: false`). Continue with X stays disabled until it is turned on. It does not create a session.
 
-Callback URI / Redirect URL:
+To enable it: Supabase → Authentication → Providers → Twitter (X). In the X developer app, the callback is the same Supabase URL:
 
-- `YOUR_HOST/api/auth/callback/twitter`
-- `http://localhost:8080/api/auth/callback/twitter`
+`https://sphswtyzxaanjcibnnln.supabase.co/auth/v1/callback`
 
-Website URL: `YOUR_HOST`
-
-Better Auth's provider id for X is `twitter`, so the path ends in `/callback/twitter`.
-
-| Variable | What to set |
-| --- | --- |
-| `X_CLIENT_ID` | OAuth 2.0 client id |
-| `X_CLIENT_SECRET` | OAuth 2.0 client secret |
-
-`TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET` are accepted as the same pair. Until one full pair is set, Continue with X stays disabled.
-
-## Optional Grok broker
-
-If the Google or X variables above are missing, that button can still use the shared broker when both of these are set:
-
-| Variable | What to set |
-| --- | --- |
-| `GROK_AUTH_CLIENT_ID` | Per-app client from the broker |
-| `GROK_AUTH_CLIENT_SECRET` | Matching secret |
-| `GROK_AUTH_ISSUER` | Optional. Defaults to `https://auth.grok.me` |
-
-Those callbacks are registered on the broker, not in the Google or X console:
-
-- `YOUR_HOST/api/auth/oauth2/callback/grok-google`
-- `YOUR_HOST/api/auth/oauth2/callback/grok-x`
-
-`*.grok-sandbox.com` previews use the built-in preview client and do not need these variables.
+No SATARANGA env var. The button reads `/auth/v1/settings` and turns on when `twitter` is true.
 
 ## Guest
 
-Play as a guest opens the board with no account. The rating stays on that device.
+Play as a guest opens the board with no Supabase session. The rating stays on that device.

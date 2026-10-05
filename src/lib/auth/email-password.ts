@@ -1,10 +1,6 @@
 /**
- * Local email/password sign-in (this app's Better Auth DB — not the broker).
- *
- * Off by default. To enable: set `emailAndPasswordEnabled` to `true` below,
- * then build sign-up / sign-in forms with `authClient.signUp.email` /
- * `authClient.signIn.email` from `@/lib/auth/client` (see the auth skill).
- *
- * Do NOT edit `server.ts` for this — that file is frozen pre-wired config.
+ * Better Auth email/password stays off.
+ * SATARANGA Create and Sign in use Supabase Auth on the shared YUDO project.
+ * Turning this on would mint a second user table and fork identity from Yuddha.Pro.
  */
-export const emailAndPasswordEnabled = true;
+export const emailAndPasswordEnabled = false;

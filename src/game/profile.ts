@@ -148,11 +148,8 @@ function applyLocal(p: Profile): Profile {
 
 async function sendAccount(data: AccountPush) {
   try {
-    const { authEnabled, authClient } = await import("@/lib/auth/client");
-    if (!authEnabled) return;
-    const session = await authClient.getSession();
-    if (!session.data?.user) return;
-    const { saveAccount } = await import("@/game/account");
+    const { accountSignedIn, saveAccount } = await import("@/game/account");
+    if (!(await accountSignedIn())) return;
     await saveAccount({ data });
   } catch {
     /* guest, or the account table is still starting */
@@ -162,12 +159,9 @@ async function sendAccount(data: AccountPush) {
 /** Pull the signed-in war record onto this device. No-op for a guest. */
 export async function hydrateAccount(): Promise<Profile | null> {
   try {
-    const { authEnabled, authClient } = await import("@/lib/auth/client");
-    if (!authEnabled) return null;
-    const session = await authClient.getSession();
-    if (!session.data?.user) return null;
+    const { accountSignedIn, loadAccount } = await import("@/game/account");
+    if (!(await accountSignedIn())) return null;
     await pushQueue;
-    const { loadAccount } = await import("@/game/account");
     const remote = await loadAccount();
     const local = loadProfile();
     if (!remote || profileIsNewer(local, remote)) {

@@ -59,6 +59,29 @@ function write(career: Career): Career {
   return career;
 }
 
+/** Put an earlier record back (undo of a result that was already saved). */
+export function replaceCareer(next: Career): Career {
+  return write({
+    v: 1,
+    name: next.name,
+    bots: {
+      1: { ...next.bots[1] },
+      2: { ...next.bots[2] },
+      3: { ...next.bots[3] },
+      4: { ...next.bots[4] },
+    },
+    recent: next.recent.slice(),
+  });
+}
+
+/** Identity of one finished game, so a later game with the same result still counts. */
+export function resultStamp(
+  endKey: string,
+  moves: { from: number; to: number; promotion: boolean }[],
+): string {
+  return `${endKey}|${moves.map((m) => `${m.from}.${m.to}.${m.promotion ? 1 : 0}`).join(",")}`;
+}
+
 export function saveName(name: string): Career {
   const career = loadCareer();
   career.name = name.trim().slice(0, 18) || "You";

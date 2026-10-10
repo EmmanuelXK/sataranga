@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { clsx } from "clsx";
 import {
@@ -38,15 +38,32 @@ import {
   type PieceType,
   type Position,
 } from "@/game/engine";
-import { playSound, unlockAudio } from "@/game/sound";
+import { playSound, setSoundEnabled, unlockAudio } from "@/game/sound";
 import { loadCareer, noteSolo, replaceCareer, resultStamp, type Career } from "@/game/career";
 import { loadProfile, noteBattle, replaceProfile, type Profile } from "@/game/profile";
 import { PACE_MS } from "@/game/launch";
 import { boardTheme, BOARDS, pointInBoard, readBoard, writeBoard, type BoardId } from "@/game/boards";
 import { PieceGlyph } from "@/components/pieces";
-import { Board3D, fightMs, type Strike } from "@/components/Board3D";
+import { fightMs, type Strike } from "@/components/strike";
+import {
+  abortGame,
+  answerDraw,
+  claimTime,
+  offerDraw,
+  openGame,
+  pushMove,
+  rateBot,
+  rateGame,
+  replayWire,
+  resignGame,
+  shownClocks,
+  watchGame,
+  type OnlineGame,
+} from "@/game/online";
 import { P2PRoom } from "@/lib/multiplayer";
 import type { Launch } from "@/game/launch";
+
+const Board3D = lazy(() => import("@/components/Board3D").then((mod) => ({ default: mod.Board3D })));
 
 const SAVE_KEY = "chaturanga-pvp-v1";
 
@@ -167,7 +184,7 @@ function fmtLead(quarters: number): string {
 }
 
 function startClocks(launch: Launch): Record<Color, number> {
-  if (launch.kind === "resume" || launch.kind === "chaturaja" || launch.kind === "prep") return { w: 0, b: 0 };
+  if (launch.kind === "resume" || launch.kind === "chaturaja" || launch.kind === "prep" || launch.kind === "online") return { w: 0, b: 0 };
   if (launch.clocks) return { w: launch.clocks.w, b: launch.clocks.b };
   const ms = launch.pace ? PACE_MS[launch.pace] : 0;
   return { w: ms, b: ms };
@@ -193,6 +210,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const [liveColor, setLiveColor] = useState<Color>("w");
   const [copied, setCopied] = useState(false);
   const [ratedLine, setRatedLine] = useState<string | null>(null);
+  const [serverFinish, setServerFinish] = useState<null | "draw" | "abort">(null);
   const [landSq, setLandSq] = useState<number | null>(null);
   const passAfter = useRef(false);
   const [handed, setHanded] = useState(false);
@@ -206,6 +224,11 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const liveRef = useRef<P2PRoom | null>(null);
   const movesRef = useRef(game.moves);
   const liveColorRef = useRef<Color>("w");
+  const onlineSnap = useRef<OnlineGame | null>(null);
+  const onlineSeenAt = useRef(0);
+  const ratedSent = useRef("");
+  const botGameId = useRef("");
+  const applyOnlineRef = useRef<(game: OnlineGame) => void>(() => {});
   movesRef.current = game.moves;
   liveColorRef.current = liveColor;
 
@@ -238,6 +261,14 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       return;
     }
     if (launch.kind === "prep" || launch.kind === "chaturaja") return;
+    if (launch.kind === "online") {
+      setServerFinish(null);
+      setGame({ ...FRESH, mode: "live", names: { w: "White", b: "Black" }, bottom: "w" });
+      setPly(0);
+      setLiveStatus("connecting");
+      setReady(true);
+      return;
+    }
     if (launch.kind === "live") {
       setGame({ ...FRESH, mode: "live", names: { w: "White", b: "Black" }, bottom: "w" });
       setPly(0);
@@ -257,8 +288,15 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const live = useMemo(() => atPly(game.moves, game.moves.length), [game.moves]);
   const view = useMemo(() => atPly(game.moves, ply), [game.moves, ply]);
   const end = endOf(game, live);
+  const settled = end.kind !== "ongoing" || serverFinish !== null;
   const endKey =
-    end.kind === "ongoing" ? "" : `${end.kind}:${end.kind === "win" ? end.winner + end.reason : end.reason}`;
+    serverFinish === "abort"
+      ? "abort"
+      : serverFinish === "draw" && end.kind === "ongoing"
+        ? "draw:agreed"
+        : end.kind === "ongoing"
+          ? ""
+          : `${end.kind}:${end.kind === "win" ? end.winner + end.reason : end.reason}`;
 
   useEffect(() => {
     if (endKey) setOverOpen(true);
@@ -275,12 +313,19 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     noteSolo(game.level, ENGINES[game.level].name, result);
     const rated = launch.kind === "solo" && !!launch.rated;
     const head = launch.kind === "solo" ? launch.head : undefined;
-    const before = loadProfile().rating;
-    const next = noteBattle({ result, rated, head });
+    noteBattle({ result, rated: false, head });
     if (rated) {
-      const delta = next.rating - before;
-      const mark = delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "±0";
-      setRatedLine(`Rating ${next.rating}  ${mark}`);
+      if (!botGameId.current) botGameId.current = crypto.randomUUID();
+      const official = end.kind === "draw" ? "1/2-1/2" : end.winner === "w" ? "1-0" : "0-1";
+      const kind = end.kind === "draw" ? end.reason : end.reason;
+      void rateBot({ gameId: botGameId.current, level: game.level, side: game.human, result: official, kind })
+        .then((change) => {
+          if (change.after == null) return;
+          const delta = change.delta ?? 0;
+          const mark = delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "±0";
+          setRatedLine(`Rating ${change.after}  ${mark}`);
+        })
+        .catch(() => setRatedLine("Sign in to save a rated bot game."));
     } else {
       setRatedLine(null);
     }
@@ -416,6 +461,98 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     commitMove(move, pos);
   };
 
+  function applyOnline(game: OnlineGame) {
+    if (game.ok === false || !game.id) {
+      setLiveStatus("failed");
+      return;
+    }
+    const moves = replayWire(game.moves ?? []);
+    if (!moves) {
+      setLiveStatus("failed");
+      return;
+    }
+    const you: Color = game.you === "b" ? "b" : "w";
+    onlineSnap.current = game;
+    onlineSeenAt.current = Date.now();
+    setLiveColor(you);
+    liveColorRef.current = you;
+    setLiveStatus(game.status === "waiting" ? "wait" : "play");
+    setClock(shownClocks(game, onlineSeenAt.current));
+    const resigned: Color | null =
+      game.result_kind === "resign" ? (game.result === "1-0" ? "b" : "w") : null;
+    const flagged: Color | null =
+      game.result_kind === "time" ? (game.result === "1-0" ? "b" : "w") : null;
+    setGame((g) => ({
+      ...g,
+      mode: "live",
+      human: you,
+      bottom: you,
+      moves,
+      names: {
+        w: game.white_name || "White",
+        b: game.black_name || "Black",
+      },
+      resigned,
+      flagged,
+    }));
+    setPly(moves.length);
+    setServerFinish(
+      game.status === "aborted" ? "abort" : game.status === "finished" && game.result === "1/2-1/2" ? "draw" : null,
+    );
+    if (game.status === "finished" && game.rated && ratedSent.current !== game.id) {
+      ratedSent.current = game.id;
+      void rateGame(game.id).then((change) => {
+        if (change.after == null) return;
+        const delta = change.delta ?? 0;
+        const mark = delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "±0";
+        setRatedLine(`Rating ${change.after}  ${mark}`);
+      });
+    }
+  }
+  applyOnlineRef.current = applyOnline;
+
+  useEffect(() => {
+    if (launch.kind !== "online") return;
+    let closed = false;
+    const id = launch.gameId;
+    void openGame(id)
+      .then((game) => {
+        if (!closed) applyOnlineRef.current(game);
+      })
+      .catch(() => {
+        if (!closed) setLiveStatus("failed");
+      });
+    const stop = watchGame(id, (game) => {
+      if (!closed) applyOnlineRef.current(game);
+    });
+    const poll = window.setInterval(() => {
+      void openGame(id)
+        .then((game) => {
+          if (!closed) applyOnlineRef.current(game);
+        })
+        .catch(() => undefined);
+    }, 4000);
+    const tick = window.setInterval(() => {
+      const snap = onlineSnap.current;
+      if (!snap?.server_now || !snap.clock_updated_at) return;
+      const virtual = Date.parse(snap.server_now) + (Date.now() - onlineSeenAt.current);
+      const clocks = shownClocks({ ...snap, server_now: new Date(virtual).toISOString() });
+      setClock(clocks);
+      const side = snap.side_to_move === "b" ? "b" : "w";
+      if (snap.status === "live" && clocks[side] <= 0) {
+        void claimTime(id).then((game) => {
+          if (!closed) applyOnlineRef.current(game);
+        });
+      }
+    }, 250);
+    return () => {
+      closed = true;
+      stop();
+      window.clearInterval(poll);
+      window.clearInterval(tick);
+    };
+  }, [launch]);
+
   useEffect(() => {
     if (launch.kind !== "live") return;
     let closed = false;
@@ -474,6 +611,15 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     const legal = legalMoves(view);
     const move = legal.find((m) => m.from === from && m.to === to);
     if (!move) return;
+    if (launch.kind === "online") {
+      const hear = game.sound;
+      void pushMove(launch.gameId, move.from, move.to, move.promotion).then((next) => {
+        if (next.ok === false) return;
+        applyOnlineRef.current(next);
+        if (hear) playSound(move.captured ? "capture" : "move");
+      });
+      return;
+    }
     commitMove(move, view);
     if (game.mode === "live") liveRef.current?.send({ t: "mv", from: move.from, to: move.to, promotion: move.promotion });
   }
@@ -536,9 +682,14 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 
   function resign() {
     if (end.kind !== "ongoing") return;
+    setConfirm(null);
+    if (launch.kind === "online") {
+      void resignGame(launch.gameId).then((game) => applyOnlineRef.current(game));
+      if (game.sound) playSound("end");
+      return;
+    }
     setGame((g) => ({ ...g, resigned: live.turn }));
     setPly(game.moves.length);
-    setConfirm(null);
     if (game.mode === "live") liveRef.current?.send({ t: "rs" });
     if (game.sound) playSound("end");
   }
@@ -592,6 +743,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
+  const clocksOn = timed || launch.kind === "online";
   const captured = (by: Color): PieceType[] => {
     const list: PieceType[] = [];
     for (let i = 0; i < ply; i++) {
@@ -677,9 +829,9 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           )}
         </div>
       )}
-      {end.kind !== "ongoing" && (
+      {settled && (
         <button type="button" className="result-banner" onClick={() => setOverOpen(true)}>
-          {headline(end, game.names)}
+          {serverFinish === "abort" ? "Game aborted" : serverFinish === "draw" && end.kind === "ongoing" ? "Draw agreed" : headline(end, game.names)}
         </button>
       )}
 
@@ -694,8 +846,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               check={checkSq >= 0 && view.turn === other(shown)}
               lead={other(shown) === "w" ? lead : -lead}
               captured={captured(other(shown))}
-              time={timed ? fmtClock(clock[other(shown)]) : null}
-              low={timed ? clock[other(shown)] < 10000 : false}
+              time={clocksOn ? fmtClock(clock[other(shown)]) : null}
+              low={clocksOn ? clock[other(shown)] < 10000 : false}
               role={game.mode === "solo" && other(shown) !== game.human ? "Engine" : null}
               editing={editing === other(shown)}
               onEdit={() => setEditing(other(shown))}
@@ -705,6 +857,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               }}
             />
             {mode3d ? (
+              <Suspense fallback={<div className="board" role="img" aria-label="SATARANGA board loading" />}>
               <Board3D
                 board={view.board}
                 orientation={shown}
@@ -719,6 +872,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
                 onSelect={setSelected}
                 onMove={playUser}
               />
+              </Suspense>
             ) : (
             <Board
               board={view.board}
@@ -744,8 +898,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               check={checkSq >= 0 && view.turn === shown}
               lead={shown === "w" ? lead : -lead}
               captured={captured(shown)}
-              time={timed ? fmtClock(clock[shown]) : null}
-              low={timed ? clock[shown] < 10000 : false}
+              time={clocksOn ? fmtClock(clock[shown]) : null}
+              low={clocksOn ? clock[shown] < 10000 : false}
               role={game.mode === "solo" && shown !== game.human ? "Engine" : null}
               editing={editing === shown}
               onEdit={() => setEditing(shown)}
@@ -769,6 +923,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               className="tool"
               onClick={undo}
               disabled={
+                launch.kind === "online" ||
                 (launch.kind === "solo" && !!launch.strict) ||
                 !!game.flagged ||
                 (!game.moves.length && !game.resigned)
@@ -791,6 +946,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <span>Flip</span>
             </button>
             )}
+            {launch.kind !== "online" && (
             <button
               type="button"
               className="tool"
@@ -802,6 +958,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <Plus strokeWidth={1.75} />
               <span>New</span>
             </button>
+            )}
             <button
               type="button"
               className="tool"
@@ -811,7 +968,27 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
               <Flag strokeWidth={1.75} />
               <span>Resign</span>
             </button>
+            {launch.kind === "online" && end.kind === "ongoing" && (
+              <button type="button" className="tool" onClick={() => void offerDraw(launch.gameId).then((next) => applyOnlineRef.current(next))}>
+                <span>Draw</span>
+              </button>
+            )}
+            {launch.kind === "online" && game.moves.length < 2 && end.kind === "ongoing" && (
+              <button type="button" className="tool" onClick={() => void abortGame(launch.gameId).then((next) => applyOnlineRef.current(next))}>
+                <span>Abort</span>
+              </button>
+            )}
           </div>
+          {launch.kind === "online" && onlineSnap.current?.draw_offer && onlineSnap.current.draw_offer !== liveColor && end.kind === "ongoing" && (
+            <div className="choice">
+              <button type="button" onClick={() => void answerDraw(launch.gameId, true).then((next) => applyOnlineRef.current(next))}>
+                Accept draw
+              </button>
+              <button type="button" onClick={() => void answerDraw(launch.gameId, false).then((next) => applyOnlineRef.current(next))}>
+                Decline
+              </button>
+            </div>
+          )}
 
           <MoveStrip sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
         </section>
@@ -819,7 +996,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
         <aside className="side">
           <div className="side-head">
             <h2>Score</h2>
-            <p>{end.kind === "ongoing" ? (view.turn === "w" ? "White to move" : "Black to move") : headline(end, game.names)}</p>
+            <p>{!settled ? (view.turn === "w" ? "White to move" : "Black to move") : serverFinish === "abort" ? "Game aborted" : serverFinish === "draw" && end.kind === "ongoing" ? "Draw agreed" : headline(end, game.names)}</p>
           </div>
           <MoveList sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
           <p className="side-note">
@@ -830,9 +1007,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       </div>
 
       <p className="sr-only" aria-live="polite">
-        {end.kind === "ongoing"
+        {!settled
           ? `${view.turn === "w" ? "White" : "Black"} to move${checkSq >= 0 ? ", check" : ""}`
-          : headline(end, game.names)}
+          : serverFinish === "abort"
+            ? "Game aborted"
+            : serverFinish === "draw" && end.kind === "ongoing"
+              ? "Draw agreed"
+              : headline(end, game.names)}
       </p>
 
       <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="SATARANGA. Locked. Old Ceylon Chaturanga.">
@@ -982,6 +1163,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           className="sound-row"
           onClick={() => {
             unlockAudio();
+            setSoundEnabled(!game.sound);
             setGame((g) => ({ ...g, sound: !g.sound }));
           }}
         >
@@ -991,17 +1173,21 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
       </Sheet>
 
       <Sheet
-        open={overOpen && end.kind !== "ongoing"}
+        open={overOpen && settled}
         onOpenChange={setOverOpen}
-        title={end.kind === "draw" ? "Draw" : "Game over"}
-        description={detail(end)}
+        title={serverFinish === "abort" ? "Aborted" : end.kind === "draw" || serverFinish === "draw" ? "Draw" : "Game over"}
+        description={serverFinish === "abort" ? "This game was aborted before it counted." : serverFinish === "draw" && end.kind === "ongoing" ? "Both players agreed to a draw." : detail(end)}
       >
-        <p className="over-title">{headline(end, game.names)}</p>
-        <p className="over-copy">{detail(end)}</p>
+        <p className="over-title">
+          {serverFinish === "abort" ? "Game aborted" : serverFinish === "draw" && end.kind === "ongoing" ? "Draw agreed" : headline(end, game.names)}
+        </p>
+        <p className="over-copy">
+          {serverFinish === "abort" ? "This game was aborted before it counted." : serverFinish === "draw" && end.kind === "ongoing" ? "Both players agreed to a draw." : detail(end)}
+        </p>
         {ratedLine ? <p className="over-copy rating-result">{ratedLine}</p> : null}
         <div className="over-actions">
-          <button type="button" className="btn primary" onClick={() => newGame()}>
-            Rematch
+          <button type="button" className="btn primary" onClick={() => (launch.kind === "online" ? onLeave() : newGame())}>
+            {launch.kind === "online" ? "Lobby" : "Rematch"}
           </button>
           <button type="button" className="btn" onClick={() => setOverOpen(false)}>
             Review board
@@ -1202,6 +1388,8 @@ function Board({
       className={clsx("board", drag?.active && "board-dragging")}
       style={{ "--sq-light": squares.light, "--sq-dark": squares.dark } as CSSProperties}
       ref={ref}
+      role="grid"
+      aria-label="SATARANGA board"
       onContextMenu={(e) => e.preventDefault()}
       onPointerDown={(e) => {
         if (e.button !== 0 && e.pointerType === "mouse") return;

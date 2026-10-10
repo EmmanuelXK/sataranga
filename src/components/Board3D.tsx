@@ -2,21 +2,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Color, Piece, PieceType } from "@/game/engine";
+import { fightMs, type Strike } from "@/components/strike";
 
-export type Strike = {
-  from: number;
-  to: number;
-  color: Color;
-  type: PieceType;
-  captured: PieceType | null;
-  started: number;
-};
-
-export function fightMs(type: PieceType) {
-  if (type === "R") return 2100;
-  if (type === "G" || type === "A") return 1760;
-  return 820;
-}
+export type { Strike };
+export { fightMs };
 
 const GREEN = "#187a42";
 const RED = "#b4232c";

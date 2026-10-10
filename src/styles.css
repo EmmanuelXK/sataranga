@@ -442,3 +442,56 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   .map-stop em { font-size: 0.52rem; }
 }
 
+.play-stack { display: flex; flex-direction: column; gap: 12px; }
+.choice { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.choice button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 0;
+  background: #1c1c1f;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+}
+.choice button.on { background: #f5f5f7; color: #111; }
+.resume-banner, .quiet {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: #1c1c1f;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+}
+.quiet.danger { color: #ff5a4a; }
+.board-list { list-style: none; margin: 0; padding: 0; }
+.board-list li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; min-height: 44px; }
+.board-list span { color: #8e8e93; }
+.tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(8, 8, 10, 0.72);
+  display: grid;
+  place-items: end center;
+  padding: 12px;
+}
+.tutorial-card {
+  width: min(520px, 100%);
+  max-height: min(88dvh, 760px);
+  overflow: auto;
+  background: #161618;
+  color: #f5f5f7;
+  border-radius: 20px;
+  padding: 18px 16px 20px;
+}
+.tutorial-card .rules { margin: 8px 0; }
+.legal { max-width: 680px; margin: 0 auto; padding: 28px 18px 64px; }
+.legal h1 { font-family: var(--font-display); letter-spacing: -0.03em; font-size: 2rem; margin: 0 0 12px; }
+.legal h2 { font-size: 1.05rem; margin: 22px 0 6px; }
+.legal p { color: #d0d0d4; line-height: 1.5; }
+.hero-battle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 16px; }
+

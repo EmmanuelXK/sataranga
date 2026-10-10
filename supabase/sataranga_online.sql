@@ -240,6 +240,17 @@ begin
 
   perform pg_advisory_xact_lock(481516234);
 
+  select * into v_game
+    from public.sataranga_games
+    where (white_id = v_uid or black_id = v_uid)
+      and status in ('waiting', 'live')
+    order by updated_at desc
+    limit 1;
+  if found then
+    delete from public.sataranga_queue where user_id = v_uid;
+    return public.sataranga_pack(v_game, v_uid) || jsonb_build_object('queued', false);
+  end if;
+
   insert into public.sataranga_queue (user_id, time_class, rated, joined_at)
   values (v_uid, p_time, p_rated, now())
   on conflict (user_id) do update
@@ -739,20 +750,25 @@ begin
     return jsonb_build_object('ok', true, 'applied', false, 'reason', 'Aborted games are not rated.');
   end if;
 
-  select rating into v_before
-    from public.rating_stats
-    where user_id = v_uid and time_class = v_game.time_class;
-
   if v_game.rated_applied then
-    select rating into v_after
-      from public.rating_stats
-      where user_id = v_uid and time_class = v_game.time_class;
+    select
+      case when v_uid = v_game.white_id then r.white_rating_before else r.black_rating_before end,
+      case when v_uid = v_game.white_id then r.white_rating_after else r.black_rating_after end
+      into v_before, v_after
+      from public.rated_results r
+      where r.game_id = v_game.id;
     return jsonb_build_object(
       'ok', true, 'applied', false, 'duplicate', true,
       'before', v_before, 'after', v_after,
-      'delta', coalesce(v_after, 0) - coalesce(v_before, v_after, 0)
+      'delta', coalesce(v_after, 0) - coalesce(v_before, 0),
+      'pool', v_game.time_class,
+      'family', 'sataranga'
     );
   end if;
+
+  select rating into v_before
+    from public.rating_stats
+    where user_id = v_uid and time_class = v_game.time_class;
 
   v_body := public.apply_rated_game(
     v_game.id, v_game.time_class, v_game.white_id, v_game.black_id, v_game.result, coalesce(v_game.result_kind, 'unspecified')
@@ -917,6 +933,11 @@ begin
   delete from public.sataranga_games where white_id = v_uid or black_id = v_uid;
   delete from public.sataranga_queue where user_id = v_uid;
   delete from public.sataranga_profile where user_id = v_uid;
+  -- rated_results blocks profile removal (ON DELETE RESTRICT). These rows are
+  -- this login's own Glicko ledger, including SATARANGA games. Other apps'
+  -- tables are left alone; if one of those still points here, the login stays.
+  delete from public.rated_results
+    where white_id = v_uid or black_id = v_uid or player_id = v_uid;
   begin
     delete from auth.users where id = v_uid;
     v_auth := true;

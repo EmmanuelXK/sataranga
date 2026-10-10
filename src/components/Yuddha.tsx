@@ -36,10 +36,7 @@ const TUTORIAL = "sataranga-tutorial-v1";
 export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
   const { user } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
-  const [welcome, setWelcome] = useState(() => {
-    if (typeof localStorage === "undefined") return true;
-    return localStorage.getItem(SEEN) !== "1";
-  });
+  const [welcome, setWelcome] = useState(false);
   const [enter, setEnter] = useState(false);
   const [tab, setTab] = useState<Tab>("play");
   useEffect(() => {
@@ -54,6 +51,14 @@ export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
     setWelcome(false);
     setEnter(true);
   }, []);
+  useEffect(() => {
+    if (signedIn) return;
+    try {
+      if (localStorage.getItem(SEEN) !== "1") setWelcome(true);
+    } catch {
+      setWelcome(true);
+    }
+  }, [signedIn]);
   useEffect(() => {
     if (!signedIn) return;
     try {
@@ -163,10 +168,7 @@ function Camp({
             profile={profile}
             live={live}
             signedIn={signedIn}
-            onDeleted={() => {
-              setLive(null);
-              setTab("play");
-            }}
+            onDeleted={() => setLive(null)}
           />
         )}
         {tab === "settings" && <SettingsPane onTutorial={() => setShowTutorial(true)} />}

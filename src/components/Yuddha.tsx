@@ -1,7 +1,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { Bot, Crown, Dice5, Globe, Shield, Swords, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX } from "lucide-react";
+import {
+  IconCrown,
+  IconGajasimha,
+  IconKastane,
+  IconKolam,
+  IconLotusPair,
+  IconMoonGlobe,
+  IconMoonProfile,
+  IconNelum,
+  IconSeal,
+  IconVine,
+  Liyawel,
+} from "@/components/ceylon-icons";
 import { ENGINES, type Level } from "@/game/engine";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
 import { loadCareer } from "@/game/career";
@@ -95,7 +108,7 @@ function Welcome({ onPlay }: { onPlay: () => void }) {
           Or sit down with a bot.
         </p>
         <button type="button" className="yd-play" onClick={onPlay}>
-          <Swords strokeWidth={2.25} /> Play now · no account
+          <IconKastane strokeWidth={1.6} /> Play now · no account
         </button>
         <p className="yd-fine">Guest games stay on this phone. A rating needs an account.</p>
         <SignedOut>
@@ -152,11 +165,11 @@ function Camp({
           <header className="home-brand home-brand-compact">
             <h1>SATARANGA</h1>
             <p className="brand-sub">
-              <i className="orn-line" aria-hidden />
+              <IconVine className="brand-vine" />
               <i className="orn-diamond" aria-hidden />
               OLD CEYLON CHESS
               <i className="orn-diamond" aria-hidden />
-              <i className="orn-line" aria-hidden />
+              <IconVine className="brand-vine" />
             </p>
           </header>
         )}
@@ -187,9 +200,9 @@ function Camp({
         </div>
       </div>
       <nav className="tabbar" aria-label="SATARANGA">
-        <TabBtn id="play" tab={tab} setTab={setTab} icon={<Dice5 strokeWidth={1.75} />} label="Play" />
-        <TabBtn id="board" tab={tab} setTab={setTab} icon={<Trophy strokeWidth={1.75} />} label="Leaderboard" />
-        <TabBtn id="profile" tab={tab} setTab={setTab} icon={<UserRound strokeWidth={1.75} />} label="Profile" />
+        <TabBtn id="play" tab={tab} setTab={setTab} icon={<IconNelum />} label="Play" />
+        <TabBtn id="board" tab={tab} setTab={setTab} icon={<IconGajasimha />} label="Leaderboard" />
+        <TabBtn id="profile" tab={tab} setTab={setTab} icon={<IconMoonProfile />} label="Profile" />
       </nav>
       {showTutorial && (
         <Tutorial
@@ -300,16 +313,17 @@ function PlayHome({
       <header className="home-brand">
         <h1>SATARANGA</h1>
         <p className="brand-sub">
-          <i className="orn-line" aria-hidden />
+          <IconVine className="brand-vine" />
           <i className="orn-diamond" aria-hidden />
           OLD CEYLON CHESS
           <i className="orn-diamond" aria-hidden />
-          <i className="orn-line" aria-hidden />
+          <IconVine className="brand-vine" />
         </p>
         <span className="rating-chip">
-          <Shield strokeWidth={1.75} aria-hidden />
+          <IconSeal />
           {ratingLabel}
         </span>
+        <Liyawel />
       </header>
       {resume?.id && (
         <button type="button" className="resume-banner" onClick={() => onPlay({ kind: "online", gameId: resume.id! })}>
@@ -334,7 +348,7 @@ function PlayHome({
           setSearching(true);
         }}
       >
-        <Swords strokeWidth={1.75} aria-hidden />
+        <IconKastane />
         <span>{searching ? "PAIRING" : "PLAY"}</span>
       </button>
       {searching && (
@@ -358,7 +372,7 @@ function PlayHome({
           aria-expanded={open === "online"}
           onClick={() => setOpen(open === "online" ? null : "online")}
         >
-          <Globe strokeWidth={1.75} aria-hidden />
+          <IconMoonGlobe />
           <span>Play Online</span>
         </button>
         <button
@@ -367,7 +381,7 @@ function PlayHome({
           aria-expanded={open === "bot"}
           onClick={() => setOpen(open === "bot" ? null : "bot")}
         >
-          <Bot strokeWidth={1.75} aria-hidden />
+          <IconKolam />
           <span>Play a Bot</span>
         </button>
         <button
@@ -376,7 +390,7 @@ function PlayHome({
           aria-expanded={open === "friend"}
           onClick={() => setOpen(open === "friend" ? null : "friend")}
         >
-          <UserRound strokeWidth={1.75} aria-hidden />
+          <IconLotusPair />
           <span>Play a Friend</span>
         </button>
       </div>
@@ -518,6 +532,7 @@ function PlayHome({
       {note && <p className="home-note">{note}</p>}
 
       <div className="recent-block">
+        <Liyawel />
         <div className="recent-head">
           <h2>Recent Games</h2>
           <button type="button" className="recent-all" onClick={onViewAll}>
@@ -533,7 +548,7 @@ function PlayHome({
               </div>
               <div className="recent-score">
                 <b>
-                  <Crown strokeWidth={1.75} aria-hidden />
+                  <IconCrown />
                   {row.result}
                 </b>
                 <span>{ago(row.at)}</span>

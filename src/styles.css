@@ -504,13 +504,25 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .yd {
-  color: #f6f1e6;
-  background-color: #3e5344;
+  position: relative;
+  color: #f6efe4;
+  background-color: #2a1018;
   background-image:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 255, 255, 0.06), transparent 46%),
-    var(--kandyan);
-  background-size: auto, 240px 240px;
+    radial-gradient(ellipse at 50% -6%, rgba(255, 214, 186, 0.2), transparent 44%),
+    radial-gradient(ellipse at 80% 100%, rgba(120, 36, 52, 0.35), transparent 46%),
+    linear-gradient(180deg, #6e3344 0%, #4a1c2c 46%, #2a1018 100%);
 }
+.yd::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.32;
+  background-image: var(--kandyan);
+  background-size: 240px 240px;
+}
+.yd > * { position: relative; z-index: 1; }
 .yd-logo, .home-brand h1, .play-cta span {
   font-family: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
 }
@@ -669,8 +681,8 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
 .recent-list b, .recent-list span { font-variant-numeric: tabular-nums; font-weight: 700; }
 .yd .tabbar {
   grid-template-columns: repeat(3, 1fr);
-  background: rgba(49, 68, 54, 0.94);
-  border-top: 1px solid rgba(198, 161, 92, 0.4);
+  background: rgba(42, 14, 22, 0.92);
+  border-top: 1px solid rgba(228, 201, 138, 0.45);
 }
 .yd .tabbar button { color: rgba(246, 241, 230, 0.62); }
 .yd .tabbar button.on,
@@ -685,10 +697,10 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
 .shell.play {
   position: relative;
   color: #f6efe6;
-  background-color: #4a1d28;
+  background-color: #2a1018;
   background-image:
-    radial-gradient(90% 40% at 50% -8%, rgba(255, 226, 206, 0.2), transparent 54%),
-    linear-gradient(180deg, #6d3140 0%, #4a1d28 48%, #3a1620 100%);
+    radial-gradient(90% 42% at 50% -8%, rgba(255, 220, 196, 0.22), transparent 52%),
+    linear-gradient(180deg, #6e3344 0%, #4a1c2c 48%, #2a1018 100%);
 }
 .shell.play::before {
   content: "";
@@ -887,28 +899,41 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   font-weight: 560;
   color: #f3e6c4;
 }
-.brand-sub .orn-line,
 .brand-sub .orn-diamond { display: block; flex: none; }
-.brand-sub .orn-line { width: 26px; height: 1px; background: #e4c98a; }
 .brand-sub .orn-diamond {
   width: 6px;
   height: 6px;
   background: #e4c98a;
   transform: rotate(45deg);
 }
+.brand-vine { width: 34px; height: 12px; color: #e4c98a; flex: none; }
+.liyawel {
+  display: block;
+  width: min(260px, 72%);
+  height: 14px;
+  margin: 6px auto 0;
+  color: #e4c98a;
+  opacity: 0.8;
+}
+.recent-block > .liyawel { width: min(220px, 64%); margin: 0 auto 2px; opacity: 0.65; }
 .yd-app .rating-chip {
   min-height: 34px;
   padding: 0 14px;
   border-color: rgba(228, 201, 138, 0.85);
-  background: rgba(20, 32, 26, 0.18);
+  background: rgba(28, 8, 14, 0.4);
   letter-spacing: 0.04em;
 }
+.yd-app .rating-chip svg { color: #e4c98a; width: 18px; height: 18px; }
 .yd-app .play-cta {
   min-height: 148px;
   border-radius: 18px;
   border: 1.5px solid #e4c98a;
-  box-shadow: inset 0 1px 0 rgba(255, 236, 214, 0.35), 0 8px 18px rgba(40, 12, 18, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, 0.42), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, #8d4454 0%, #6a2838 46%, #3c1420 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 214, 0.55), 0 10px 22px rgba(24, 6, 12, 0.35);
 }
+.yd-app .play-cta svg { color: #f0d7a2; width: 28px; height: 28px; }
 .yd-app .play-cta span { font-size: 1.85rem; letter-spacing: 0.34em; }
 .yd-app .mode-row { gap: 10px; }
 .yd-app .mode-tile {
@@ -919,8 +944,15 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   font-size: 0.78rem;
   gap: 8px;
   line-height: 1.15;
+  color: #f6efe4;
+  border-color: rgba(228, 201, 138, 0.8);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, 0.22), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(180deg, #6a3040 0%, #421824 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 214, 0.4), 0 8px 16px rgba(20, 6, 10, 0.28);
 }
-.yd-app .mode-tile svg { width: 28px; height: 28px; }
+.yd-app .mode-tile svg { width: 34px; height: 34px; color: #e4c98a; }
+.yd-app .mode-tile.on { box-shadow: inset 0 0 0 1.5px #e4c98a, inset 0 1px 0 rgba(255, 236, 214, 0.4); }
 .recent-block { display: flex; flex-direction: column; gap: 8px; }
 .yd-app .recent-head { margin: 0; }
 .yd-app .recent-head h2 { font-size: 1.12rem; }
@@ -950,7 +982,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   width: min(392px, calc(100% - 28px));
   border-radius: 22px;
   border: 1px solid rgba(212, 180, 120, 0.5);
-  background: rgba(36, 52, 44, 0.94);
+  background: rgba(36, 12, 20, 0.94);
   box-shadow: 0 10px 28px rgba(10, 18, 14, 0.35);
   padding: 4px 8px;
   z-index: 25;
@@ -959,7 +991,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(16, 24, 18, 0.46);
+  background: rgba(18, 6, 10, 0.55);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1030,8 +1062,8 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   flex: none;
   border-radius: 50%;
   border: 1px solid rgba(228, 201, 138, 0.55);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f6efe6;
+  background: rgba(255, 236, 214, 0.08);
+  color: #e4c98a;
   display: grid;
   place-items: center;
   padding: 0;
@@ -1086,8 +1118,11 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid rgba(228, 201, 138, 0.35);
-  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(228, 201, 138, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, 0.18), rgba(255, 255, 255, 0) 55%),
+    rgba(255, 255, 255, 0.08);
+  color: #e4c98a;
 }
 .play-more { margin: 0; }
 .shell.play .play-more { margin-top: auto; }

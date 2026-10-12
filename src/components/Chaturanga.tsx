@@ -4,11 +4,7 @@ import { clsx } from "clsx";
 import {
   ArrowLeftRight,
   BookOpen,
-  ChevronLeft,
-  Clock,
-  Crown,
   Flag,
-  MoreHorizontal,
   Play,
   Plus,
   Settings,
@@ -16,6 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { IconBack, IconCrown, IconMoonClock, IconMore } from "@/components/ceylon-icons";
 import {
   ENGINES,
   PIECE_META,
@@ -856,7 +853,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
             <PlayerBar
               leading={
                 <button type="button" className="back-btn" onClick={leave} aria-label="Lobby">
-                  <ChevronLeft strokeWidth={1.75} />
+                  <IconBack />
                 </button>
               }
               self={mine === other(shown)}
@@ -1071,7 +1068,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              <MoreHorizontal strokeWidth={1.75} />
+              <IconMore />
             </button>
           </div>
         </section>
@@ -1364,7 +1361,7 @@ function PlayerBar({
           )}
           {rating && (
             <span className="player-rating">
-              <Crown strokeWidth={1.75} aria-hidden />
+              <IconCrown />
               {rating}
             </span>
           )}
@@ -1373,7 +1370,7 @@ function PlayerBar({
       </div>
       {time && (
         <span className={clsx("clk", "clk-pill", low && "clk-low")}>
-          <Clock strokeWidth={1.75} aria-hidden />
+          <IconMoonClock />
           {time}
         </span>
       )}

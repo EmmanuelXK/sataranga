@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { Bot, Castle, Swords, Trophy, UserRound, Users, Volume2, VolumeX } from "lucide-react";
+import { Bot, Dice5, Globe, Shield, Swords, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
 import { ENGINES, type Level } from "@/game/engine";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
 import { loadCareer } from "@/game/career";
@@ -28,12 +28,14 @@ import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user
 import { PIECE_META, type PieceType } from "@/game/engine";
 import { PieceGlyph } from "@/components/pieces";
 
-type Tab = "play" | "board" | "profile" | "settings";
+type Tab = "play" | "board" | "profile";
+
+export type RecentGame = { id: string; title: string; detail: string; at: number };
 
 const SEEN = "yuddha-seen-v1";
 const TUTORIAL = "sataranga-tutorial-v1";
 
-export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
+export function Yuddha({ onPlay, recent = [] }: { onPlay: (launch: Launch) => void; recent?: RecentGame[] }) {
   const { user } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
   const [welcome, setWelcome] = useState(false);
@@ -78,7 +80,7 @@ export function Yuddha({ onPlay }: { onPlay: (launch: Launch) => void }) {
       />
     );
   }
-  return <Camp tab={tab} setTab={setTab} onPlay={onPlay} enter={enter} signedIn={signedIn} />;
+  return <Camp tab={tab} setTab={setTab} onPlay={onPlay} enter={enter} signedIn={signedIn} recent={recent} />;
 }
 
 function Welcome({ onPlay }: { onPlay: () => void }) {
@@ -112,12 +114,14 @@ function Camp({
   onPlay,
   enter,
   signedIn,
+  recent,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   onPlay: (launch: Launch) => void;
   enter: boolean;
   signedIn: boolean;
+  recent: RecentGame[];
 }) {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
   const [live, setLive] = useState<LiveRating | null>(null);
@@ -139,45 +143,52 @@ function Camp({
     if (localStorage.getItem(TUTORIAL) === "1") return;
     setShowTutorial(true);
   }, []);
-  const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toUpperCase();
   const ratingLabel = live ? String(live.rating) : signedIn ? "…" : "Guest";
 
   return (
     <main className={clsx("yd", enter && "yd-enter")}>
       <div className="yd-body">
-        <header className="yd-head">
-          <div>
-            <p className="yd-kicker">{day} · Old Ceylon Chess</p>
-            <h1 className="hub-name">SATARANGA</h1>
-          </div>
-          <div className="yd-head-side">
-            <span className="rating-pill">
-              <b>{ratingLabel}</b>
-              <em>{live ? "sataranga" : signedIn ? "rating" : "local"}</em>
-            </span>
-            <button type="button" className="avatar" aria-label="Profile" onClick={() => setTab("profile")}>
-              <Face />
-            </button>
-          </div>
+        <header className="home-brand">
+          <h1>SATARANGA</h1>
+          <p className="brand-sub">
+            <i aria-hidden />
+            OLD CEYLON CHESS
+            <i aria-hidden />
+          </p>
+          <span className="rating-chip">
+            <Shield strokeWidth={1.75} aria-hidden />
+            {ratingLabel}
+          </span>
         </header>
 
-        {tab === "play" && <PlayHome onPlay={onPlay} signedIn={signedIn} profile={profile} />}
-        {tab === "board" && <Leaderboard />}
-        {tab === "profile" && (
-          <ProfilePane
-            profile={profile}
-            live={live}
-            signedIn={signedIn}
-            onDeleted={() => setLive(null)}
-          />
-        )}
-        {tab === "settings" && <SettingsPane onTutorial={() => setShowTutorial(true)} />}
+        <div key={tab} className="pane-fade">
+          {tab === "play" && (
+            <PlayHome
+              onPlay={onPlay}
+              signedIn={signedIn}
+              profile={profile}
+              recent={recent}
+              onViewAll={() => setTab("profile")}
+            />
+          )}
+          {tab === "board" && <Leaderboard />}
+          {tab === "profile" && (
+            <>
+              <ProfilePane
+                profile={profile}
+                live={live}
+                signedIn={signedIn}
+                onDeleted={() => setLive(null)}
+              />
+              <SettingsPane onTutorial={() => setShowTutorial(true)} />
+            </>
+          )}
+        </div>
       </div>
       <nav className="tabbar" aria-label="SATARANGA">
-        <TabBtn id="play" tab={tab} setTab={setTab} icon={<Castle strokeWidth={1.75} />} label="Play" />
-        <TabBtn id="board" tab={tab} setTab={setTab} icon={<Trophy strokeWidth={1.75} />} label="Board" />
+        <TabBtn id="play" tab={tab} setTab={setTab} icon={<Dice5 strokeWidth={1.75} />} label="Play" />
+        <TabBtn id="board" tab={tab} setTab={setTab} icon={<Trophy strokeWidth={1.75} />} label="Leaderboard" />
         <TabBtn id="profile" tab={tab} setTab={setTab} icon={<UserRound strokeWidth={1.75} />} label="Profile" />
-        <TabBtn id="settings" tab={tab} setTab={setTab} icon={<Volume2 strokeWidth={1.75} />} label="Settings" />
       </nav>
       {showTutorial && (
         <Tutorial
@@ -200,10 +211,14 @@ function PlayHome({
   onPlay,
   signedIn,
   profile,
+  recent,
+  onViewAll,
 }: {
   onPlay: (launch: Launch) => void;
   signedIn: boolean;
   profile: Profile;
+  recent: RecentGame[];
+  onViewAll: () => void;
 }) {
   const [time, setTime] = useState<TimeControl>("blitz");
   const [rated, setRated] = useState(true);
@@ -214,6 +229,7 @@ function PlayHome({
   const [code, setCode] = useState("");
   const [invite, setInvite] = useState<OnlineGame | null>(null);
   const [resume, setResume] = useState<OnlineGame | null>(null);
+  const [open, setOpen] = useState<null | "online" | "bot" | "friend">(null);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -274,6 +290,8 @@ function PlayHome({
     }
   }
 
+  const localGames = profile.wins + profile.losses + profile.draws;
+
   return (
     <div className="play-stack">
       {resume?.id && (
@@ -283,154 +301,239 @@ function PlayHome({
         </button>
       )}
 
-      <section className="panel" aria-labelledby="online-title">
-        <div className="panel-h">
-          <h2 id="online-title">Play online</h2>
-          <Users strokeWidth={1.75} aria-hidden />
-        </div>
-        <Choice
-          label="Time"
-          value={time}
-          options={[["blitz", "Blitz 3+2"], ["rapid", "Rapid 5+10"]]}
-          onChange={(value) => setTime(value as TimeControl)}
-        />
-        <Choice
-          label="Stakes"
-          value={rated ? "rated" : "casual"}
-          options={[["rated", "Rated"], ["casual", "Casual"]]}
-          onChange={(value) => setRated(value === "rated")}
-        />
+      <button
+        type="button"
+        className="play-cta"
+        disabled={!!busy}
+        onClick={() => {
+          if (!signedIn) {
+            setNote("Sign in to play online.");
+            setOpen("online");
+            return;
+          }
+          setTime("blitz");
+          setRated(true);
+          setNote(null);
+          setSearching(true);
+        }}
+      >
+        <Swords strokeWidth={1.75} aria-hidden />
+        <span>{searching ? "PAIRING" : "PLAY"}</span>
+      </button>
+      {searching && (
         <button
           type="button"
-          className="hero-battle"
-          disabled={!!busy}
+          className="quiet"
           onClick={() => {
-            if (!signedIn) {
-              setNote("Sign in to play online.");
-              return;
-            }
+            setSearching(false);
             setNote(null);
-            setSearching(true);
+            void leaveQueue();
           }}
         >
-          <Swords strokeWidth={2.25} /> {searching ? "Pairing…" : `Find a ${control.name} game`}
+          Cancel search
         </button>
-        {searching && (
+      )}
+
+      <div className="mode-row">
+        <button
+          type="button"
+          className={clsx("mode-tile", open === "online" && "on")}
+          aria-expanded={open === "online"}
+          onClick={() => setOpen(open === "online" ? null : "online")}
+        >
+          <Globe strokeWidth={1.75} aria-hidden />
+          <span>Play Online</span>
+        </button>
+        <button
+          type="button"
+          className={clsx("mode-tile", open === "bot" && "on")}
+          aria-expanded={open === "bot"}
+          onClick={() => setOpen(open === "bot" ? null : "bot")}
+        >
+          <Bot strokeWidth={1.75} aria-hidden />
+          <span>Play a Bot</span>
+        </button>
+        <button
+          type="button"
+          className={clsx("mode-tile", open === "friend" && "on")}
+          aria-expanded={open === "friend"}
+          onClick={() => setOpen(open === "friend" ? null : "friend")}
+        >
+          <UserRound strokeWidth={1.75} aria-hidden />
+          <span>Play a Friend</span>
+        </button>
+      </div>
+
+      {open === "online" && (
+        <section className="mode-sheet" aria-labelledby="online-title">
+          <h2 id="online-title">Play Online</h2>
+          <Choice
+            label="Time"
+            value={time}
+            options={[["blitz", "Blitz 3+2"], ["rapid", "Rapid 5+10"]]}
+            onChange={(value) => setTime(value as TimeControl)}
+          />
+          <Choice
+            label="Stakes"
+            value={rated ? "rated" : "casual"}
+            options={[["rated", "Rated"], ["casual", "Casual"]]}
+            onChange={(value) => setRated(value === "rated")}
+          />
+          <button
+            type="button"
+            className="hero-battle"
+            disabled={!!busy}
+            onClick={() => {
+              if (!signedIn) {
+                setNote("Sign in to play online.");
+                return;
+              }
+              setNote(null);
+              setSearching(true);
+            }}
+          >
+            {searching ? "Pairing…" : `Find a ${control.name} game`}
+          </button>
+        </section>
+      )}
+
+      {open === "bot" && (
+        <section className="mode-sheet" aria-labelledby="bots-title">
+          <h2 id="bots-title">Play a Bot</h2>
+          <p className="yd-copy">Works with no connection. A rated bot game needs an account.</p>
+          <Choice
+            label="Bot"
+            value={String(level)}
+            options={([1, 2, 3, 4] as Level[]).map((id) => [String(id), ENGINES[id].name])}
+            onChange={(value) => setLevel(Number(value) as Level)}
+          />
+          <Choice
+            label="Time"
+            value={time}
+            options={[["blitz", "Blitz 3+2"], ["rapid", "Rapid 5+10"]]}
+            onChange={(value) => setTime(value as TimeControl)}
+          />
+          <button
+            type="button"
+            className="hero-battle"
+            onClick={() =>
+              onPlay({
+                kind: "solo",
+                human: "w",
+                level,
+                clocks: pairClocks(time),
+                increment: control.inc,
+                rated: signedIn && rated,
+              })
+            }
+          >
+            Play {ENGINES[level].name}
+          </button>
+        </section>
+      )}
+
+      {open === "friend" && (
+        <section className="mode-sheet" aria-labelledby="friend-title">
+          <h2 id="friend-title">Play a Friend</h2>
+          <button
+            type="button"
+            className="hero-battle"
+            disabled={!!busy}
+            onClick={() =>
+              void run("invite", async () => {
+                if (!signedIn) throw new Error("Sign in to make an invite.");
+                const game = await createInvite(time, rated);
+                setInvite(game);
+              })
+            }
+          >
+            {invite?.invite_code ? `Code ${invite.invite_code}` : "Create an invite"}
+          </button>
+          {invite?.id && invite.status === "waiting" && (
+            <button type="button" className="quiet" onClick={() => void abortGame(invite.id!).then(() => setInvite(null))}>
+              Cancel invite
+            </button>
+          )}
+          <label className="prep-label" htmlFor="join-code">
+            Invite code
+          </label>
+          <input
+            id="join-code"
+            className="name"
+            value={code}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="five letters"
+            onChange={(event) => setCode(event.target.value)}
+          />
           <button
             type="button"
             className="quiet"
-            onClick={() => {
-              setSearching(false);
-              setNote(null);
-              void leaveQueue();
-            }}
+            disabled={!!busy || code.trim().length < 4}
+            onClick={() =>
+              void run("join", async () => {
+                if (!signedIn) throw new Error("Sign in to join.");
+                const game = await joinInvite(code);
+                if (!game.id) throw new Error(game.error || "That code is not waiting.");
+                onPlay({ kind: "online", gameId: game.id });
+              })
+            }
           >
-            Cancel search
+            Join
           </button>
-        )}
-      </section>
-
-      <section className="panel" aria-labelledby="bots-title">
-        <div className="panel-h">
-          <h2 id="bots-title">Play bots</h2>
-          <Bot strokeWidth={1.75} aria-hidden />
-        </div>
-        <p className="yd-copy">Works with no connection. A rated bot game needs an account.</p>
-        <Choice
-          label="Bot"
-          value={String(level)}
-          options={( [1, 2, 3, 4] as Level[]).map((id) => [String(id), ENGINES[id].name])}
-          onChange={(value) => setLevel(Number(value) as Level)}
-        />
-        <Choice
-          label="Time"
-          value={time}
-          options={[["blitz", "Blitz 3+2"], ["rapid", "Rapid 5+10"]]}
-          onChange={(value) => setTime(value as TimeControl)}
-        />
-        <button
-          type="button"
-          className="hero-battle"
-          onClick={() =>
-            onPlay({
-              kind: "solo",
-              human: "w",
-              level,
-              clocks: pairClocks(time),
-              increment: control.inc,
-              rated: signedIn && rated,
-            })
-          }
-        >
-          Play {ENGINES[level].name}
-        </button>
-      </section>
-
-      <section className="panel" aria-labelledby="friend-title">
-        <div className="panel-h">
-          <h2 id="friend-title">Play a friend</h2>
-        </div>
-        <button
-          type="button"
-          className="hero-battle"
-          disabled={!!busy}
-          onClick={() =>
-            void run("invite", async () => {
-              if (!signedIn) throw new Error("Sign in to make an invite.");
-              const game = await createInvite(time, rated);
-              setInvite(game);
-            })
-          }
-        >
-          {invite?.invite_code ? `Code ${invite.invite_code}` : "Create an invite"}
-        </button>
-        {invite?.id && invite.status === "waiting" && (
-          <button type="button" className="quiet" onClick={() => void abortGame(invite.id!).then(() => setInvite(null))}>
-            Cancel invite
+          <button
+            type="button"
+            className="quiet"
+            onClick={() => onPlay({ kind: "pvp", clocks: pairClocks(time), increment: control.inc })}
+          >
+            Same phone
           </button>
+        </section>
+      )}
+
+      {note && <p className="home-note">{note}</p>}
+
+      <div className="recent-head">
+        <h2>Recent Games</h2>
+        <button type="button" className="recent-all" onClick={onViewAll}>
+          View All
+        </button>
+      </div>
+      {recent.length === 0 && localGames === 0 && <p className="home-note">Games from this visit show up here.</p>}
+      <ul className="recent-list">
+        {recent.map((row) => (
+          <li key={row.id}>
+            <div>
+              <strong>{row.title}</strong>
+              <em>{row.detail}</em>
+            </div>
+            <span>{ago(row.at)}</span>
+          </li>
+        ))}
+        {localGames > 0 && (
+          <li>
+            <div>
+              <strong>On this phone</strong>
+              <em>Local record</em>
+            </div>
+            <b>
+              {profile.wins}–{profile.losses}–{profile.draws}
+            </b>
+          </li>
         )}
-        <label className="prep-label" htmlFor="join-code">
-          Invite code
-        </label>
-        <input
-          id="join-code"
-          className="name"
-          value={code}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="five letters"
-          onChange={(event) => setCode(event.target.value)}
-        />
-        <button
-          type="button"
-          className="quiet"
-          disabled={!!busy || code.trim().length < 4}
-          onClick={() =>
-            void run("join", async () => {
-              if (!signedIn) throw new Error("Sign in to join.");
-              const game = await joinInvite(code);
-              if (!game.id) throw new Error(game.error || "That code is not waiting.");
-              onPlay({ kind: "online", gameId: game.id });
-            })
-          }
-        >
-          Join
-        </button>
-        <button
-          type="button"
-          className="quiet"
-          onClick={() =>
-            onPlay({ kind: "pvp", clocks: pairClocks(time), increment: control.inc })
-          }
-        >
-          Same phone
-        </button>
-      </section>
-      {note && <p className="yd-copy">{note}</p>}
-      <p className="yd-fine">Local record {profile.wins}–{profile.losses}–{profile.draws}. Online rating is the sataranga family.</p>
+      </ul>
     </div>
   );
+}
+
+function ago(at: number): string {
+  const mins = Math.floor(Math.max(0, Date.now() - at) / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function Leaderboard() {

@@ -5,7 +5,10 @@ import {
   ArrowLeftRight,
   BookOpen,
   ChevronLeft,
+  Clock,
+  Crown,
   Flag,
+  MoreHorizontal,
   Plus,
   Settings,
   Undo2,
@@ -49,6 +52,7 @@ import {
   abortGame,
   answerDraw,
   claimTime,
+  myRating,
   offerDraw,
   openGame,
   pushMove,
@@ -203,6 +207,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const [thinking, setThinking] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [youRating, setYouRating] = useState<number | null>(null);
   const [overOpen, setOverOpen] = useState(false);
   const [confirm, setConfirm] = useState<null | "new" | "resign">(null);
   const [editing, setEditing] = useState<Color | null>(null);
@@ -743,6 +749,18 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
+  useEffect(() => {
+    let on = true;
+    myRating()
+      .then((row) => {
+        if (on && row) setYouRating(row.rating);
+      })
+      .catch(() => undefined);
+    return () => {
+      on = false;
+    };
+  }, [ratedLine]);
+
   const clocksOn = timed || launch.kind === "online";
   const captured = (by: Color): PieceType[] => {
     const list: PieceType[] = [];
@@ -771,30 +789,16 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           : "Pass & play";
 
   const sheetOpen = rulesOpen || settingsOpen || overOpen || confirm !== null;
+  const mine: Color | null = game.mode === "live" ? liveColor : game.mode === "solo" ? game.human : null;
+  const seatRating = (color: Color) => (youRating != null && mine === color ? String(youRating) : null);
 
   return (
     <main className="shell play">
-      <header className="top">
-        <div className="top-lead">
-          <button type="button" className="icon-btn" onClick={onLeave}>
-            <ChevronLeft strokeWidth={1.75} />
-            <span>Lobby</span>
-          </button>
-          <div>
-            <h1 className="wordmark">SATARANGA</h1>
-            <p className="sub">{subtitle}</p>
-          </div>
-        </div>
-        <div className="top-actions">
-          <button type="button" className="icon-btn" onClick={() => setRulesOpen(true)}>
-            <BookOpen strokeWidth={1.75} />
-            <span>Moves</span>
-          </button>
-          <button type="button" className="icon-btn" onClick={() => setSettingsOpen(true)}>
-            <Settings strokeWidth={1.75} />
-            <span>Settings</span>
-          </button>
-        </div>
+      <header className="play-top">
+        <button type="button" className="icon-btn" onClick={onLeave} aria-label="Lobby">
+          <ChevronLeft strokeWidth={1.75} />
+        </button>
+        <p className="play-kicker">{subtitle}</p>
       </header>
 
       {game.mode === "live" && launch.kind === "live" && liveStatus !== "play" && (
@@ -841,6 +845,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             <PlayerBar
               color={other(shown)}
               name={game.names[other(shown)]}
+              rating={seatRating(other(shown))}
               active={view.turn === other(shown) && end.kind === "ongoing"}
               thinking={thinking && live.turn === other(shown)}
               check={checkSq >= 0 && view.turn === other(shown)}
@@ -893,6 +898,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             <PlayerBar
               color={shown}
               name={game.names[shown]}
+              label={mine === shown && (game.names[shown] === "White" || game.names[shown] === "Black") ? "You" : undefined}
+              rating={seatRating(shown)}
               active={view.turn === shown && end.kind === "ongoing"}
               thinking={thinking && live.turn === shown}
               check={checkSq >= 0 && view.turn === shown}
@@ -917,70 +924,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             )}
           </div>
 
-          <div className={clsx("toolbar", game.mode === "pvp" && "toolbar-pass")}>
-            <button
-              type="button"
-              className="tool"
-              onClick={undo}
-              disabled={
-                launch.kind === "online" ||
-                (launch.kind === "solo" && !!launch.strict) ||
-                !!game.flagged ||
-                (!game.moves.length && !game.resigned)
-              }
-            >
-              <Undo2 strokeWidth={1.75} />
-              <span>Undo</span>
-            </button>
-            {game.mode !== "pvp" && (
-            <button
-              type="button"
-              className={clsx("tool", game.bottom && "tool-on")}
-              onClick={() => {
-                const cur = game.mode === "solo" ? (game.bottom ?? game.human) : (game.bottom ?? view.turn);
-                setGame((g) => ({ ...g, bottom: other(cur) }));
-                setFlight(null);
-              }}
-            >
-              <ArrowLeftRight strokeWidth={1.75} />
-              <span>Flip</span>
-            </button>
-            )}
-            {launch.kind !== "online" && (
-            <button
-              type="button"
-              className="tool"
-              onClick={() => {
-                if (game.moves.length && end.kind === "ongoing") setConfirm("new");
-                else newGame();
-              }}
-            >
-              <Plus strokeWidth={1.75} />
-              <span>New</span>
-            </button>
-            )}
-            <button
-              type="button"
-              className="tool"
-              disabled={end.kind !== "ongoing" || (game.mode === "solo" && live.turn !== game.human)}
-              onClick={() => setConfirm("resign")}
-            >
-              <Flag strokeWidth={1.75} />
-              <span>Resign</span>
-            </button>
-            {launch.kind === "online" && end.kind === "ongoing" && (
-              <button type="button" className="tool" onClick={() => void offerDraw(launch.gameId).then((next) => applyOnlineRef.current(next))}>
-                <span>Draw</span>
-              </button>
-            )}
-            {launch.kind === "online" && game.moves.length < 2 && end.kind === "ongoing" && (
-              <button type="button" className="tool" onClick={() => void abortGame(launch.gameId).then((next) => applyOnlineRef.current(next))}>
-                <span>Abort</span>
-              </button>
-            )}
-          </div>
           {launch.kind === "online" && onlineSnap.current?.draw_offer && onlineSnap.current.draw_offer !== liveColor && end.kind === "ongoing" && (
-            <div className="choice">
+            <div className="choice draw-choice">
               <button type="button" onClick={() => void answerDraw(launch.gameId, true).then((next) => applyOnlineRef.current(next))}>
                 Accept draw
               </button>
@@ -991,6 +936,121 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
           )}
 
           <MoveStrip sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
+
+          <div className="play-more">
+            {menuOpen && (
+              <div className="play-menu" role="menu" aria-label="Game menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    undo();
+                  }}
+                  disabled={
+                    launch.kind === "online" ||
+                    (launch.kind === "solo" && !!launch.strict) ||
+                    !!game.flagged ||
+                    (!game.moves.length && !game.resigned)
+                  }
+                >
+                  <Undo2 strokeWidth={1.75} aria-hidden /> Undo
+                </button>
+                {game.mode !== "pvp" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      const cur = game.mode === "solo" ? (game.bottom ?? game.human) : (game.bottom ?? view.turn);
+                      setGame((g) => ({ ...g, bottom: other(cur) }));
+                      setFlight(null);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <ArrowLeftRight strokeWidth={1.75} aria-hidden /> Flip
+                  </button>
+                )}
+                {launch.kind !== "online" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (game.moves.length && end.kind === "ongoing") setConfirm("new");
+                      else newGame();
+                    }}
+                  >
+                    <Plus strokeWidth={1.75} aria-hidden /> New
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={end.kind !== "ongoing" || (game.mode === "solo" && live.turn !== game.human)}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setConfirm("resign");
+                  }}
+                >
+                  <Flag strokeWidth={1.75} aria-hidden /> Resign
+                </button>
+                {launch.kind === "online" && end.kind === "ongoing" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void offerDraw(launch.gameId).then((next) => applyOnlineRef.current(next));
+                    }}
+                  >
+                    Draw
+                  </button>
+                )}
+                {launch.kind === "online" && game.moves.length < 2 && end.kind === "ongoing" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void abortGame(launch.gameId).then((next) => applyOnlineRef.current(next));
+                    }}
+                  >
+                    Abort
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setRulesOpen(true);
+                  }}
+                >
+                  <BookOpen strokeWidth={1.75} aria-hidden /> Moves
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setSettingsOpen(true);
+                  }}
+                >
+                  <Settings strokeWidth={1.75} aria-hidden /> Settings
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className="more-btn"
+              aria-label="Game menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal strokeWidth={1.75} />
+            </button>
+          </div>
         </section>
 
         <aside className="side">
@@ -1222,6 +1282,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 function PlayerBar({
   color,
   name,
+  label,
+  rating,
   active,
   thinking,
   check,
@@ -1236,6 +1298,8 @@ function PlayerBar({
 }: {
   color: Color;
   name: string;
+  label?: string;
+  rating: string | null;
   active: boolean;
   thinking: boolean;
   check: boolean;
@@ -1267,22 +1331,92 @@ function PlayerBar({
             />
           ) : (
             <button type="button" className="name" onClick={onEdit}>
-              {name}
+              {label || name}
             </button>
+          )}
+          {rating && (
+            <span className="player-rating">
+              <Crown strokeWidth={1.75} aria-hidden />
+              {rating}
+            </span>
           )}
           {role && <span className="role">{role}</span>}
           {check && <span className="check-tag">Check</span>}
           {thinking && <span className="think">Thinking</span>}
+          {lead > 0 && <span className="lead">{fmtLead(lead)}</span>}
+        </div>
+        {captured.length > 0 && (
           <div className="caps">
             {captured.map((type, i) => (
               <PieceGlyph key={type + i} type={type} color={other(color)} className="cap" />
             ))}
           </div>
-          {lead > 0 && <span className="lead">{fmtLead(lead)}</span>}
-          {time && <span className={clsx("clk", low && "clk-low")}>{time}</span>}
-        </div>
+        )}
       </div>
+      {time && (
+        <span className={clsx("clk", "clk-pill", low && "clk-low")}>
+          <Clock strokeWidth={1.75} aria-hidden />
+          {time}
+        </span>
+      )}
     </div>
+  );
+}
+
+function LastMoveArrow({
+  from,
+  to,
+  sqPx,
+  color,
+  capture,
+}: {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  sqPx: number;
+  color: Color;
+  capture: boolean;
+}) {
+  const x1 = from.x + sqPx / 2;
+  const y1 = from.y + sqPx / 2;
+  const x2 = to.x + sqPx / 2;
+  const y2 = to.y + sqPx / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const px = -uy;
+  const py = ux;
+  const tail = sqPx * 0.2;
+  const tip = sqPx * 0.14;
+  const span = Math.max(sqPx * 0.24, len - tail - tip);
+  const head = Math.min(sqPx * 0.34, span * 0.46);
+  const shaft = Math.max(3, sqPx * 0.1);
+  const headW = sqPx * 0.2;
+  const sx = x1 + ux * tail;
+  const sy = y1 + uy * tail;
+  const ex = x2 - ux * tip;
+  const ey = y2 - uy * tip;
+  const hx = ex - ux * head;
+  const hy = ey - uy * head;
+  const half = shaft / 2;
+  const d = [
+    `M ${sx + px * half} ${sy + py * half}`,
+    `L ${hx + px * half} ${hy + py * half}`,
+    `L ${hx + px * headW} ${hy + py * headW}`,
+    `L ${ex} ${ey}`,
+    `L ${hx - px * headW} ${hy - py * headW}`,
+    `L ${hx - px * half} ${hy - py * half}`,
+    `L ${sx - px * half} ${sy - py * half}`,
+    "Z",
+  ].join(" ");
+  const fill = capture ? "#e24b4b" : color === "w" ? "#f7f1e4" : "#2c2622";
+  const stroke = capture ? "#3d1212" : color === "w" ? "#1a120c" : "#f4efe6";
+  const size = sqPx * 8;
+  return (
+    <svg className="move-arrow" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      <path d={d} fill={fill} stroke={stroke} strokeWidth={Math.max(1, sqPx * 0.03)} strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -1466,6 +1600,15 @@ function Board({
             </button>
           );
         }),
+      )}
+      {last && sqPx > 0 && (
+        <LastMoveArrow
+          from={origin(last.from)}
+          to={origin(last.to)}
+          sqPx={sqPx}
+          color={last.color}
+          capture={last.captured != null}
+        />
       )}
       {flight && flightPos && (
         <div

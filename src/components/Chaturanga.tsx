@@ -12,7 +12,8 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { IconBack, IconCrown, IconMoonClock, IconMore, ScreenFrame } from "@/components/ceylon-icons";
+import { IconBack, IconCrown, IconMoonClock } from "@/components/ceylon-icons";
+import { SageCoach } from "@/components/manuscript";
 import {
   ENGINES,
   PIECE_META,
@@ -191,6 +192,28 @@ function startClocks(launch: Launch): Record<Color, number> {
   if (launch.clocks) return { w: launch.clocks.w, b: launch.clocks.b };
   const ms = launch.pace ? PACE_MS[launch.pace] : 0;
   return { w: ms, b: ms };
+}
+
+function coachTip(ply: number, last: Move | null, check: boolean, end: End): string {
+  if (end.kind === "win") {
+    return end.reason === "resign" ? "A fair resignation. Rest, then sit again." : "Well held. The Raja is decided.";
+  }
+  if (end.kind === "draw") return "A fair draw. Both sides kept their nerve.";
+  if (check) return "Check. Give the Raja a quiet square before you celebrate.";
+  if (last?.captured) return "A piece leaves the board. Count what remains, then breathe.";
+  const lines = [
+    "The Hewa steps one square forward. There is no hurry.",
+    "The Ashva leaps in an L, and it may jump over a friend.",
+    "The Gaja springs two squares on the diagonal.",
+    "The Ratha runs along the rank and the file.",
+    "The Mantri steps one square, on the diagonal only.",
+    "The Raja steps one square, any way. Keep it company.",
+    "A bare Raja loses, unless you can bare back at once.",
+    "Stalemate loses. Leave your opponent a legal move.",
+    "Good. Look at the elephant before you send the horse.",
+    "Steady hands. The center is worth more than a rushed capture.",
+  ];
+  return lines[ply % lines.length]!;
 }
 
 export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summary?: { result: string }) => void }) {
@@ -804,9 +827,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
     onLeave({ result: mark });
   }
 
+  const coach =
+    game.mode === "solo"
+      ? coachTip(ply, last, checkSq >= 0, end)
+      : null;
+
   return (
-    <main className="shell play">
-      <ScreenFrame />
+    <main className="shell play ms-game">
       <div className="play-col">
       <p className="sr-only">{subtitle}</p>
 
@@ -850,8 +877,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
 
       <div className="layout">
         <section className="stage" inert={sheetOpen ? true : undefined}>
-          <div className="frame">
-            <PlayerBar
+          <PlayerBar
               leading={
                 <button type="button" className="back-btn" onClick={leave} aria-label="Lobby">
                   <IconBack />
@@ -876,7 +902,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
                 setEditing(null);
               }}
             />
-            <div className="kandyan-band" aria-hidden="true" />
+          <div className="frame">
             {mode3d ? (
               <Suspense fallback={<div className="board" role="img" aria-label="SATARANGA board loading" />}>
               <Board3D
@@ -911,6 +937,14 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
               onMove={playUser}
             />
             )}
+            {handed && game.mode === "pvp" && end.kind === "ongoing" && (
+              <button type="button" className="pass-cover" onClick={() => setHanded(false)}>
+                <span>Pass the phone</span>
+                <strong>{game.names[view.turn]} to move</strong>
+                <em>Tap when you are ready</em>
+              </button>
+            )}
+          </div>
             <PlayerBar
               self={mine === shown}
               color={shown}
@@ -932,14 +966,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
                 setEditing(null);
               }}
             />
-            {handed && game.mode === "pvp" && end.kind === "ongoing" && (
-              <button type="button" className="pass-cover" onClick={() => setHanded(false)}>
-                <span>Pass the phone</span>
-                <strong>{game.names[view.turn]} to move</strong>
-                <em>Tap when you're ready</em>
-              </button>
-            )}
-          </div>
+          {coach && <SageCoach text={coach} />}
 
           {launch.kind === "online" && onlineSnap.current?.draw_offer && onlineSnap.current.draw_offer !== liveColor && end.kind === "ongoing" && (
             <div className="choice draw-choice">
@@ -1062,16 +1089,38 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
                 </button>
               </div>
             )}
-            <button
-              type="button"
-              className="more-btn"
-              aria-label="Game menu"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <IconMore />
-            </button>
+            <div className="stone-row">
+              <button
+                type="button"
+                className="stone-btn"
+                disabled={end.kind !== "ongoing" || (game.mode === "solo" && live.turn !== game.human)}
+                onClick={() => setConfirm("resign")}
+              >
+                <Flag strokeWidth={1.75} aria-hidden />
+                Resign
+              </button>
+              <button
+                type="button"
+                className="stone-btn"
+                disabled={launch.kind !== "online" || end.kind !== "ongoing"}
+                onClick={() => {
+                  if (launch.kind !== "online") return;
+                  void offerDraw(launch.gameId).then((next) => applyOnlineRef.current(next));
+                }}
+              >
+                Draw
+              </button>
+              <button
+                type="button"
+                className="stone-btn"
+                aria-label="Game menu"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                Menu
+              </button>
+            </div>
           </div>
         </section>
 
@@ -1676,7 +1725,7 @@ function MoveStrip({
     <div className="strip">
       <div className="strip-scroll">
         {sans.length === 0 ? (
-          <p className="empty-moves">Moves show up here.</p>
+          <p className="empty-moves">Your moves will be written here.</p>
         ) : (
           sans.map((san, i) => (
             <button key={i} type="button" className={clsx("move-btn", ply === i + 1 && "on")} onClick={() => onPick(i + 1)}>

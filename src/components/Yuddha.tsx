@@ -2,21 +2,19 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { Volume2, VolumeX } from "lucide-react";
+import { IconKastane } from "@/components/ceylon-icons";
 import {
-  IconCrown,
-  IconGajasimha,
-  IconKastane,
-  IconKolam,
-  IconLotusPair,
-  IconMoonGlobe,
-  IconMoonProfile,
-  IconNelum,
-  IconSeal,
-  IconVine,
-  Liyawel,
-  LotusDivider,
-  ScreenFrame,
-} from "@/components/ceylon-icons";
+  BattleSketch,
+  IconBust,
+  IconFriends,
+  IconQuill,
+  IconScholar,
+  IconScroll,
+  IconTemple,
+  SageCoach,
+  WeaveBand,
+  WordOrnament,
+} from "@/components/manuscript";
 import { ENGINES, type Level } from "@/game/engine";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
 import { loadCareer } from "@/game/career";
@@ -43,7 +41,7 @@ import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user
 import { PIECE_META, type PieceType } from "@/game/engine";
 import { PieceGlyph } from "@/components/pieces";
 
-type Tab = "play" | "board" | "profile";
+type Tab = "play" | "board" | "profile" | "lore";
 
 export type RecentGame = { id: string; title: string; detail: string; result: string; at: number };
 
@@ -100,18 +98,18 @@ export function Yuddha({ onPlay, recent = [] }: { onPlay: (launch: Launch) => vo
 
 function Welcome({ onPlay }: { onPlay: () => void }) {
   return (
-    <main className="yd">
-      <ScreenFrame />
-      <div className="yd-welcome">
-        <p className="yd-kicker brand-kicker">Old Ceylon Chess</p>
-        <h1 className="yd-logo">SATARANGA</h1>
-        <p className="yd-lead">
-          Play online.
-          <br />
-          Or sit down with a bot.
-        </p>
-        <button type="button" className="yd-play" onClick={onPlay}>
-          <IconKastane strokeWidth={1.6} /> Play now · no account
+    <main className="yd ms">
+      <div className="yd-welcome ms-welcome">
+        <WordOrnament />
+        <h1 className="ms-word">SATARANGA</h1>
+        <p className="ms-sub">The ancient battle of minds</p>
+        <BattleSketch />
+        <button type="button" className="plaque" onClick={onPlay}>
+          <IconKastane strokeWidth={1.6} />
+          <span>
+            <strong>PLAY</strong>
+            <em>NO ACCOUNT NEEDED</em>
+          </span>
         </button>
         <p className="yd-fine">Guest games stay on this phone. A rating needs an account.</p>
         <SignedOut>
@@ -120,6 +118,7 @@ function Welcome({ onPlay }: { onPlay: () => void }) {
           </Link>
         </SignedOut>
       </div>
+      <WeaveBand />
     </main>
   );
 }
@@ -162,32 +161,24 @@ function Camp({
   const ratingLabel = live ? String(live.rating) : signedIn ? "…" : "Guest";
 
   return (
-    <main className={clsx("yd yd-app", enter && "yd-enter")}>
-      <ScreenFrame />
+    <main className={clsx("yd yd-app ms", enter && "yd-enter")}>
       <div className="yd-body">
-        {tab !== "play" && (
-          <header className="home-brand home-brand-compact">
-            <h1>SATARANGA</h1>
-            <p className="brand-sub">
-              <IconVine className="brand-vine" />
-              <i className="orn-diamond" aria-hidden />
-              OLD CEYLON CHESS
-              <i className="orn-diamond" aria-hidden />
-              <IconVine className="brand-vine" />
+        <header className="ms-brand">
+          <button type="button" className="ms-brand-btn" onClick={() => setTab("play")}>
+            <WordOrnament />
+            <h1 className="ms-word">SATARANGA</h1>
+            <p className="ms-sub">
+              <i />
+              The ancient battle of minds
+              <i />
             </p>
-          </header>
-        )}
+            <p className="ms-rate">{ratingLabel}</p>
+          </button>
+        </header>
 
-        <div key={tab} className="pane-fade">
+        <div key={tab} className="pane-fade ms-stage">
           {tab === "play" && (
-            <PlayHome
-              onPlay={onPlay}
-              signedIn={signedIn}
-              profile={profile}
-              recent={recent}
-              ratingLabel={ratingLabel}
-              onViewAll={() => setTab("profile")}
-            />
+            <PlayHome onPlay={onPlay} signedIn={signedIn} />
           )}
           {tab === "board" && <Leaderboard />}
           {tab === "profile" && (
@@ -196,18 +187,21 @@ function Camp({
                 profile={profile}
                 live={live}
                 signedIn={signedIn}
+                recent={recent}
                 onDeleted={() => setLive(null)}
               />
               <SettingsPane onTutorial={() => setShowTutorial(true)} />
             </>
           )}
+          {tab === "lore" && <LorePane onPractice={() => setShowTutorial(true)} />}
         </div>
       </div>
-      <nav className="tabbar" aria-label="SATARANGA">
-        <TabBtn id="play" tab={tab} setTab={setTab} icon={<IconNelum />} label="Play" />
-        <TabBtn id="board" tab={tab} setTab={setTab} icon={<IconGajasimha />} label="Leaderboard" />
-        <TabBtn id="profile" tab={tab} setTab={setTab} icon={<IconMoonProfile />} label="Profile" />
+      <nav className="ms-dock" aria-label="SATARANGA">
+        <TabBtn id="board" tab={tab} setTab={setTab} icon={<IconScroll />} label="Leaderboard" />
+        <TabBtn id="profile" tab={tab} setTab={setTab} icon={<IconBust />} label="Profile" />
+        <TabBtn id="lore" tab={tab} setTab={setTab} icon={<IconQuill />} label="Lore" />
       </nav>
+      <WeaveBand />
       {showTutorial && (
         <Tutorial
           onClose={(skip) => {
@@ -228,17 +222,9 @@ function Camp({
 function PlayHome({
   onPlay,
   signedIn,
-  profile,
-  recent,
-  ratingLabel,
-  onViewAll,
 }: {
   onPlay: (launch: Launch) => void;
   signedIn: boolean;
-  profile: Profile;
-  recent: RecentGame[];
-  ratingLabel: string;
-  onViewAll: () => void;
 }) {
   const [time, setTime] = useState<TimeControl>("blitz");
   const [rated, setRated] = useState(true);
@@ -310,56 +296,59 @@ function PlayHome({
     }
   }
 
-  const localGames = profile.wins + profile.losses + profile.draws;
-
   return (
-    <div className="play-stack">
-      <header className="home-brand">
-        <h1>SATARANGA</h1>
-        <p className="brand-sub">
-          <IconVine className="brand-vine" />
-          <i className="orn-diamond" aria-hidden />
-          OLD CEYLON CHESS
-          <i className="orn-diamond" aria-hidden />
-          <IconVine className="brand-vine" />
-        </p>
-        <span className="rating-chip">
-          <IconSeal />
-          {ratingLabel}
-        </span>
-        <Liyawel />
-      </header>
+    <div className="play-stack ms-play">
       {resume?.id && (
         <button type="button" className="resume-banner" onClick={() => onPlay({ kind: "online", gameId: resume.id! })}>
           Resume {resume.time_class === "rapid" ? "Rapid" : "Blitz"}
           {resume.invite_code ? ` · ${resume.invite_code}` : ""}
         </button>
       )}
-
-      <button
-        type="button"
-        className="play-cta"
-        disabled={!!busy}
-        onClick={() => {
-          if (!signedIn) {
-            setNote("Sign in to play online.");
-            setOpen("online");
-            return;
-          }
-          setTime("blitz");
-          setRated(true);
-          setNote(null);
-          setSearching(true);
-        }}
-      >
-        <IconKastane />
-        <span>{searching ? "PAIRING" : "PLAY"}</span>
-      </button>
-      <LotusDivider />
+      <div className="ms-art">
+        <BattleSketch />
+      </div>
+      <div className="ms-plaques">
+        <button
+          type="button"
+          className={clsx("plaque", open === "online" && "on")}
+          aria-expanded={open === "online"}
+          onClick={() => setOpen(open === "online" ? null : "online")}
+        >
+          <IconTemple />
+          <span>
+            <strong>{searching ? "PAIRING" : "PLAY ONLINE"}</strong>
+            <em>BEGIN BATTLE</em>
+          </span>
+        </button>
+        <button
+          type="button"
+          className={clsx("plaque", open === "bot" && "on")}
+          aria-expanded={open === "bot"}
+          onClick={() => setOpen(open === "bot" ? null : "bot")}
+        >
+          <IconScholar />
+          <span>
+            <strong>PLAY A BOT</strong>
+            <em>A QUIET LESSON</em>
+          </span>
+        </button>
+        <button
+          type="button"
+          className={clsx("plaque", open === "friend" && "on")}
+          aria-expanded={open === "friend"}
+          onClick={() => setOpen(open === "friend" ? null : "friend")}
+        >
+          <IconFriends />
+          <span>
+            <strong>PLAY A FRIEND</strong>
+            <em>ONE CODE</em>
+          </span>
+        </button>
+      </div>
       {searching && (
         <button
           type="button"
-          className="quiet"
+          className="quiet ms-cancel"
           onClick={() => {
             setSearching(false);
             setNote(null);
@@ -369,36 +358,6 @@ function PlayHome({
           Cancel search
         </button>
       )}
-
-      <div className="mode-row">
-        <button
-          type="button"
-          className={clsx("mode-tile", open === "online" && "on")}
-          aria-expanded={open === "online"}
-          onClick={() => setOpen(open === "online" ? null : "online")}
-        >
-          <IconMoonGlobe />
-          <span>Play Online</span>
-        </button>
-        <button
-          type="button"
-          className={clsx("mode-tile", open === "bot" && "on")}
-          aria-expanded={open === "bot"}
-          onClick={() => setOpen(open === "bot" ? null : "bot")}
-        >
-          <IconKolam />
-          <span>Play a Bot</span>
-        </button>
-        <button
-          type="button"
-          className={clsx("mode-tile", open === "friend" && "on")}
-          aria-expanded={open === "friend"}
-          onClick={() => setOpen(open === "friend" ? null : "friend")}
-        >
-          <IconLotusPair />
-          <span>Play a Friend</span>
-        </button>
-      </div>
 
       {open === "online" && (
         <div className="mode-overlay" onClick={() => setOpen(null)}>
@@ -439,7 +398,8 @@ function PlayHome({
         <div className="mode-overlay" onClick={() => setOpen(null)}>
         <section className="mode-sheet" aria-labelledby="bots-title" onClick={(event) => event.stopPropagation()}>
           <h2 id="bots-title">Play a Bot</h2>
-          <p className="yd-copy">Works with no connection. A rated bot game needs an account.</p>
+          <SageCoach text="Choose a teacher. I will sit with you and speak after each move." />
+          <p className="yd-copy">Hewa is gentle. Raja is stubborn. No connection needed. A rated game needs an account.</p>
           <Choice
             label="Bot"
             value={String(level)}
@@ -535,59 +495,6 @@ function PlayHome({
       )}
 
       {note && <p className="home-note">{note}</p>}
-
-      <div className="recent-block">
-        <Liyawel />
-        <div className="recent-head">
-          <h2>Recent Games</h2>
-          <button type="button" className="recent-all" onClick={onViewAll}>
-            View All
-          </button>
-        </div>
-        <ul className="recent-list">
-          {recent.slice(0, 3).map((row) => (
-            <li key={row.id}>
-              <div>
-                <strong>{row.title}</strong>
-                <em>{row.detail}</em>
-              </div>
-              <div className="recent-score">
-                <b>
-                  <IconCrown />
-                  {row.result}
-                </b>
-                <span>{ago(row.at)}</span>
-              </div>
-            </li>
-          ))}
-          {recent.length === 0 && localGames > 0 && (
-            <li>
-              <div>
-                <strong>On this phone</strong>
-                <em>Local</em>
-              </div>
-              <div className="recent-score">
-                <b>
-                  {profile.wins}–{profile.losses}
-                </b>
-                <span>{profile.draws} draws</span>
-              </div>
-            </li>
-          )}
-          {recent.length === 0 && localGames === 0 && (
-            <li>
-              <div>
-                <strong>No games yet</strong>
-                <em>This visit</em>
-              </div>
-              <div className="recent-score">
-                <b>—</b>
-                <span>Play</span>
-              </div>
-            </li>
-          )}
-        </ul>
-      </div>
     </div>
   );
 }
@@ -642,11 +549,13 @@ function ProfilePane({
   profile,
   live,
   signedIn,
+  recent,
   onDeleted,
 }: {
   profile: Profile;
   live: LiveRating | null;
   signedIn: boolean;
+  recent: RecentGame[];
   onDeleted: () => void;
 }) {
   const user = useCurrentUser();
@@ -676,6 +585,22 @@ function ProfilePane({
       <p className="yd-copy">
         On this phone: {profile.wins} wins, {profile.losses} losses, {profile.draws} draws.
       </p>
+      {recent.length > 0 && (
+        <ul className="recent-list ms-recent">
+          {recent.slice(0, 3).map((row) => (
+            <li key={row.id}>
+              <div>
+                <strong>{row.title}</strong>
+                <em>{row.detail}</em>
+              </div>
+              <div className="recent-score">
+                <b>{row.result}</b>
+                <span>{ago(row.at)}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="login-duo profile-duo">
         This account is shared with YUDDHA.PRO. SATARANGA keeps its own games. YUDDHA.PRO only links here.
       </p>
@@ -751,6 +676,38 @@ function SettingsPane({ onTutorial }: { onTutorial: () => void }) {
         {" · "}
         <Link to="/terms">Terms</Link>
       </p>
+    </section>
+  );
+}
+
+function LorePane({ onPractice }: { onPractice: () => void }) {
+  const order: PieceType[] = ["K", "M", "G", "A", "R", "P"];
+  return (
+    <section className="panel ms-lore" aria-labelledby="lore-title">
+      <SageCoach text="Read the pieces once. Then sit down and try a quiet game." />
+      <h2 id="lore-title">Rules and lore</h2>
+      <p className="yd-copy">Old Ceylon chess. Two armies, one board, and no hurry.</p>
+      <ul className="rules">
+        {order.map((type) => (
+          <li key={type}>
+            <span className="mini" aria-hidden>
+              <PieceGlyph type={type} color="w" />
+            </span>
+            <div>
+              <strong>{PIECE_META[type].name}</strong>
+              <p>{PIECE_META[type].blurb}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="yd-copy">A bare Raja loses at once, unless it can bare the other Raja on the next move. That is a draw. Stalemate loses. No castling, no en passant.</p>
+      <button type="button" className="plaque" onClick={onPractice}>
+        <IconQuill />
+        <span>
+          <strong>FIRST LESSON</strong>
+          <em>WALK THE PIECES</em>
+        </span>
+      </button>
     </section>
   );
 }

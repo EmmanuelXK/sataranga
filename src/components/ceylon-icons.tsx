@@ -205,6 +205,47 @@ export function IconVine(props: IconProps) {
   );
 }
 
+/** Three lotus petals, a light divider between sections. */
+export function LotusDivider(props: IconProps) {
+  return (
+    <svg viewBox="0 0 88 16" fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinecap="round" aria-hidden className="lotus-div" {...props}>
+      <path d="M44 14c0-4.2.8-6.4 0-10-.8 3.6 0 5.8 0 10" />
+      <path d="M44 13c-3.2-1.2-6.4-1-9.2.6 2.2-3.4 5.2-4.6 9.2-4.2" />
+      <path d="M44 13c3.2-1.2 6.4-1 9.2.6-2.2-3.4-5.2-4.6-9.2-4.2" />
+      <path d="M8 8h18" />
+      <path d="M62 8h18" />
+    </svg>
+  );
+}
+
+/** Double gold hairline with a liyawel scroll in each corner. */
+export function ScreenFrame() {
+  return (
+    <div className="screen-frame" aria-hidden="true">
+      <svg className="frame-corner tl" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round">
+        <path d="M5 22 V7 H20" />
+        <path d="M5 16 V10 H11" />
+        <path d="M9 13c2.4-2.8 4-3 5-.8" />
+      </svg>
+      <svg className="frame-corner tr" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round">
+        <path d="M5 22 V7 H20" />
+        <path d="M5 16 V10 H11" />
+        <path d="M9 13c2.4-2.8 4-3 5-.8" />
+      </svg>
+      <svg className="frame-corner bl" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round">
+        <path d="M5 22 V7 H20" />
+        <path d="M5 16 V10 H11" />
+        <path d="M9 13c2.4-2.8 4-3 5-.8" />
+      </svg>
+      <svg className="frame-corner br" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round">
+        <path d="M5 22 V7 H20" />
+        <path d="M5 16 V10 H11" />
+        <path d="M9 13c2.4-2.8 4-3 5-.8" />
+      </svg>
+    </div>
+  );
+}
+
 /** A full-width liyawel divider. */
 export function Liyawel(props: IconProps) {
   return (

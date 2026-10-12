@@ -14,6 +14,8 @@ import {
   IconSeal,
   IconVine,
   Liyawel,
+  LotusDivider,
+  ScreenFrame,
 } from "@/components/ceylon-icons";
 import { ENGINES, type Level } from "@/game/engine";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
@@ -99,6 +101,7 @@ export function Yuddha({ onPlay, recent = [] }: { onPlay: (launch: Launch) => vo
 function Welcome({ onPlay }: { onPlay: () => void }) {
   return (
     <main className="yd">
+      <ScreenFrame />
       <div className="yd-welcome">
         <p className="yd-kicker brand-kicker">Old Ceylon Chess</p>
         <h1 className="yd-logo">SATARANGA</h1>
@@ -160,6 +163,7 @@ function Camp({
 
   return (
     <main className={clsx("yd yd-app", enter && "yd-enter")}>
+      <ScreenFrame />
       <div className="yd-body">
         {tab !== "play" && (
           <header className="home-brand home-brand-compact">
@@ -351,6 +355,7 @@ function PlayHome({
         <IconKastane />
         <span>{searching ? "PAIRING" : "PLAY"}</span>
       </button>
+      <LotusDivider />
       {searching && (
         <button
           type="button"

@@ -12,7 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { IconBack, IconCrown, IconMoonClock, IconMore } from "@/components/ceylon-icons";
+import { IconBack, IconCrown, IconMoonClock, IconMore, ScreenFrame } from "@/components/ceylon-icons";
 import {
   ENGINES,
   PIECE_META,
@@ -806,6 +806,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
 
   return (
     <main className="shell play">
+      <ScreenFrame />
       <div className="play-col">
       <p className="sr-only">{subtitle}</p>
 
@@ -875,6 +876,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
                 setEditing(null);
               }}
             />
+            <div className="kandyan-band" aria-hidden="true" />
             {mode3d ? (
               <Suspense fallback={<div className="board" role="img" aria-label="SATARANGA board loading" />}>
               <Board3D

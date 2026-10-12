@@ -9,6 +9,7 @@ import {
   Crown,
   Flag,
   MoreHorizontal,
+  Play,
   Plus,
   Settings,
   Undo2,
@@ -65,6 +66,7 @@ import {
   type OnlineGame,
 } from "@/game/online";
 import { P2PRoom } from "@/lib/multiplayer";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 import type { Launch } from "@/game/launch";
 
 const Board3D = lazy(() => import("@/components/Board3D").then((mod) => ({ default: mod.Board3D })));
@@ -194,7 +196,7 @@ function startClocks(launch: Launch): Record<Color, number> {
   return { w: ms, b: ms };
 }
 
-export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () => void }) {
+export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summary?: { result: string }) => void }) {
   const [game, setGame] = useState<Game>(FRESH);
   const [ply, setPly] = useState(0);
   const [ready, setReady] = useState(false);
@@ -791,15 +793,24 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
   const sheetOpen = rulesOpen || settingsOpen || overOpen || confirm !== null;
   const mine: Color | null = game.mode === "live" ? liveColor : game.mode === "solo" ? game.human : null;
   const seatRating = (color: Color) => (youRating != null && mine === color ? String(youRating) : null);
+  const mark =
+    serverFinish === "abort"
+      ? "—"
+      : end.kind === "draw" || serverFinish === "draw"
+        ? "½–½"
+        : end.kind === "win"
+          ? end.winner === "w"
+            ? "1–0"
+            : "0–1"
+          : "—";
+  function leave() {
+    onLeave({ result: mark });
+  }
 
   return (
     <main className="shell play">
-      <header className="play-top">
-        <button type="button" className="icon-btn" onClick={onLeave} aria-label="Lobby">
-          <ChevronLeft strokeWidth={1.75} />
-        </button>
-        <p className="play-kicker">{subtitle}</p>
-      </header>
+      <div className="play-col">
+      <p className="sr-only">{subtitle}</p>
 
       {game.mode === "live" && launch.kind === "live" && liveStatus !== "play" && (
         <div className="wait-card">
@@ -843,6 +854,12 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
         <section className="stage" inert={sheetOpen ? true : undefined}>
           <div className="frame">
             <PlayerBar
+              leading={
+                <button type="button" className="back-btn" onClick={leave} aria-label="Lobby">
+                  <ChevronLeft strokeWidth={1.75} />
+                </button>
+              }
+              self={mine === other(shown)}
               color={other(shown)}
               name={game.names[other(shown)]}
               rating={seatRating(other(shown))}
@@ -896,6 +913,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             />
             )}
             <PlayerBar
+              self={mine === shown}
               color={shown}
               name={game.names[shown]}
               label={mine === shown && (game.names[shown] === "White" || game.names[shown] === "Black") ? "You" : undefined}
@@ -935,7 +953,12 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             </div>
           )}
 
-          <MoveStrip sans={sans} ply={ply} onPick={(n) => { setHanded(false); setPly(n); }} />
+          <MoveStrip
+            sans={sans}
+            ply={ply}
+            onPick={(n) => { setHanded(false); setPly(n); }}
+            onStep={() => { setHanded(false); setPly((n) => Math.min(sans.length, n + 1)); }}
+          />
 
           <div className="play-more">
             {menuOpen && (
@@ -1064,6 +1087,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
             bare back at once.
           </p>
         </aside>
+      </div>
       </div>
 
       <p className="sr-only" aria-live="polite">
@@ -1246,13 +1270,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
         </p>
         {ratedLine ? <p className="over-copy rating-result">{ratedLine}</p> : null}
         <div className="over-actions">
-          <button type="button" className="btn primary" onClick={() => (launch.kind === "online" ? onLeave() : newGame())}>
+          <button type="button" className="btn primary" onClick={() => (launch.kind === "online" ? leave() : newGame())}>
             {launch.kind === "online" ? "Lobby" : "Rematch"}
           </button>
           <button type="button" className="btn" onClick={() => setOverOpen(false)}>
             Review board
           </button>
-          <button type="button" className="btn" onClick={onLeave}>
+          <button type="button" className="btn" onClick={leave}>
             Lobby
           </button>
         </div>
@@ -1280,22 +1304,22 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: () =>
 }
 
 function PlayerBar({
+  leading,
+  self,
   color,
   name,
   label,
   rating,
   active,
   thinking,
-  check,
-  lead,
-  captured,
   time,
   low,
-  role,
   editing,
   onEdit,
   onName,
 }: {
+  leading?: ReactNode;
+  self?: boolean;
   color: Color;
   name: string;
   label?: string;
@@ -1312,9 +1336,13 @@ function PlayerBar({
   onEdit: () => void;
   onName: (value: string) => void;
 }) {
+  const shownName = label || name;
   return (
     <div className={clsx("player", active && "player-active")}>
-      <span className={clsx("swatch", color === "w" ? "swatch-w" : "swatch-b")} aria-hidden="true" />
+      {leading}
+      <span className={clsx("swatch", "seat-face", color === "w" ? "swatch-w" : "swatch-b")} aria-hidden="true">
+        {self ? <SeatPhoto /> : <b>{shownName.slice(0, 1)}</b>}
+      </span>
       <div className="player-main">
         <div className="player-line">
           {editing ? (
@@ -1331,7 +1359,7 @@ function PlayerBar({
             />
           ) : (
             <button type="button" className="name" onClick={onEdit}>
-              {label || name}
+              {shownName}
             </button>
           )}
           {rating && (
@@ -1340,18 +1368,8 @@ function PlayerBar({
               {rating}
             </span>
           )}
-          {role && <span className="role">{role}</span>}
-          {check && <span className="check-tag">Check</span>}
-          {thinking && <span className="think">Thinking</span>}
-          {lead > 0 && <span className="lead">{fmtLead(lead)}</span>}
+          {thinking && <span className="think">…</span>}
         </div>
-        {captured.length > 0 && (
-          <div className="caps">
-            {captured.map((type, i) => (
-              <PieceGlyph key={type + i} type={type} color={other(color)} className="cap" />
-            ))}
-          </div>
-        )}
       </div>
       {time && (
         <span className={clsx("clk", "clk-pill", low && "clk-low")}>
@@ -1361,6 +1379,12 @@ function PlayerBar({
       )}
     </div>
   );
+}
+
+function SeatPhoto() {
+  const user = useCurrentUser();
+  if (user?.profileImageUrl) return <img src={user.profileImageUrl} alt="" />;
+  return <img src="/art/lanka.png" alt="" />;
 }
 
 function LastMoveArrow({
@@ -1638,16 +1662,34 @@ function Board({
   );
 }
 
-function MoveStrip({ sans, ply, onPick }: { sans: string[]; ply: number; onPick: (ply: number) => void }) {
-  if (!sans.length) return <p className="empty-moves">Moves show up here.</p>;
+function MoveStrip({
+  sans,
+  ply,
+  onPick,
+  onStep,
+}: {
+  sans: string[];
+  ply: number;
+  onPick: (ply: number) => void;
+  onStep: () => void;
+}) {
   return (
     <div className="strip">
-      {sans.map((san, i) => (
-        <button key={i} type="button" className={clsx("move-btn", ply === i + 1 && "on")} onClick={() => onPick(i + 1)}>
-          {i % 2 === 0 && <span className="mn">{i / 2 + 1}</span>}
-          {san}
-        </button>
-      ))}
+      <div className="strip-scroll">
+        {sans.length === 0 ? (
+          <p className="empty-moves">Moves show up here.</p>
+        ) : (
+          sans.map((san, i) => (
+            <button key={i} type="button" className={clsx("move-btn", ply === i + 1 && "on")} onClick={() => onPick(i + 1)}>
+              {i % 2 === 0 && <span className="mn">{i / 2 + 1}.</span>}
+              {san}
+            </button>
+          ))
+        )}
+      </div>
+      <button type="button" className="strip-play" aria-label="Next move" onClick={onStep} disabled={ply >= sans.length}>
+        <Play strokeWidth={2} aria-hidden />
+      </button>
     </div>
   );
 }

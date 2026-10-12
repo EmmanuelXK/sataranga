@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { Bot, Dice5, Globe, Shield, Swords, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
+import { Bot, Crown, Dice5, Globe, Shield, Swords, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
 import { ENGINES, type Level } from "@/game/engine";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
 import { loadCareer } from "@/game/career";
@@ -30,7 +30,7 @@ import { PieceGlyph } from "@/components/pieces";
 
 type Tab = "play" | "board" | "profile";
 
-export type RecentGame = { id: string; title: string; detail: string; at: number };
+export type RecentGame = { id: string; title: string; detail: string; result: string; at: number };
 
 const SEEN = "yuddha-seen-v1";
 const TUTORIAL = "sataranga-tutorial-v1";
@@ -146,20 +146,20 @@ function Camp({
   const ratingLabel = live ? String(live.rating) : signedIn ? "…" : "Guest";
 
   return (
-    <main className={clsx("yd", enter && "yd-enter")}>
+    <main className={clsx("yd yd-app", enter && "yd-enter")}>
       <div className="yd-body">
-        <header className="home-brand">
-          <h1>SATARANGA</h1>
-          <p className="brand-sub">
-            <i aria-hidden />
-            OLD CEYLON CHESS
-            <i aria-hidden />
-          </p>
-          <span className="rating-chip">
-            <Shield strokeWidth={1.75} aria-hidden />
-            {ratingLabel}
-          </span>
-        </header>
+        {tab !== "play" && (
+          <header className="home-brand home-brand-compact">
+            <h1>SATARANGA</h1>
+            <p className="brand-sub">
+              <i className="orn-line" aria-hidden />
+              <i className="orn-diamond" aria-hidden />
+              OLD CEYLON CHESS
+              <i className="orn-diamond" aria-hidden />
+              <i className="orn-line" aria-hidden />
+            </p>
+          </header>
+        )}
 
         <div key={tab} className="pane-fade">
           {tab === "play" && (
@@ -168,6 +168,7 @@ function Camp({
               signedIn={signedIn}
               profile={profile}
               recent={recent}
+              ratingLabel={ratingLabel}
               onViewAll={() => setTab("profile")}
             />
           )}
@@ -212,12 +213,14 @@ function PlayHome({
   signedIn,
   profile,
   recent,
+  ratingLabel,
   onViewAll,
 }: {
   onPlay: (launch: Launch) => void;
   signedIn: boolean;
   profile: Profile;
   recent: RecentGame[];
+  ratingLabel: string;
   onViewAll: () => void;
 }) {
   const [time, setTime] = useState<TimeControl>("blitz");
@@ -294,6 +297,20 @@ function PlayHome({
 
   return (
     <div className="play-stack">
+      <header className="home-brand">
+        <h1>SATARANGA</h1>
+        <p className="brand-sub">
+          <i className="orn-line" aria-hidden />
+          <i className="orn-diamond" aria-hidden />
+          OLD CEYLON CHESS
+          <i className="orn-diamond" aria-hidden />
+          <i className="orn-line" aria-hidden />
+        </p>
+        <span className="rating-chip">
+          <Shield strokeWidth={1.75} aria-hidden />
+          {ratingLabel}
+        </span>
+      </header>
       {resume?.id && (
         <button type="button" className="resume-banner" onClick={() => onPlay({ kind: "online", gameId: resume.id! })}>
           Resume {resume.time_class === "rapid" ? "Rapid" : "Blitz"}
@@ -365,7 +382,8 @@ function PlayHome({
       </div>
 
       {open === "online" && (
-        <section className="mode-sheet" aria-labelledby="online-title">
+        <div className="mode-overlay" onClick={() => setOpen(null)}>
+        <section className="mode-sheet" aria-labelledby="online-title" onClick={(event) => event.stopPropagation()}>
           <h2 id="online-title">Play Online</h2>
           <Choice
             label="Time"
@@ -395,10 +413,12 @@ function PlayHome({
             {searching ? "Pairing…" : `Find a ${control.name} game`}
           </button>
         </section>
+        </div>
       )}
 
       {open === "bot" && (
-        <section className="mode-sheet" aria-labelledby="bots-title">
+        <div className="mode-overlay" onClick={() => setOpen(null)}>
+        <section className="mode-sheet" aria-labelledby="bots-title" onClick={(event) => event.stopPropagation()}>
           <h2 id="bots-title">Play a Bot</h2>
           <p className="yd-copy">Works with no connection. A rated bot game needs an account.</p>
           <Choice
@@ -430,10 +450,12 @@ function PlayHome({
             Play {ENGINES[level].name}
           </button>
         </section>
+        </div>
       )}
 
       {open === "friend" && (
-        <section className="mode-sheet" aria-labelledby="friend-title">
+        <div className="mode-overlay" onClick={() => setOpen(null)}>
+        <section className="mode-sheet" aria-labelledby="friend-title" onClick={(event) => event.stopPropagation()}>
           <h2 id="friend-title">Play a Friend</h2>
           <button
             type="button"
@@ -487,42 +509,65 @@ function PlayHome({
             className="quiet"
             onClick={() => onPlay({ kind: "pvp", clocks: pairClocks(time), increment: control.inc })}
           >
-            Same phone
-          </button>
+          Same phone
+        </button>
         </section>
+        </div>
       )}
 
       {note && <p className="home-note">{note}</p>}
 
-      <div className="recent-head">
-        <h2>Recent Games</h2>
-        <button type="button" className="recent-all" onClick={onViewAll}>
-          View All
-        </button>
+      <div className="recent-block">
+        <div className="recent-head">
+          <h2>Recent Games</h2>
+          <button type="button" className="recent-all" onClick={onViewAll}>
+            View All
+          </button>
+        </div>
+        <ul className="recent-list">
+          {recent.slice(0, 3).map((row) => (
+            <li key={row.id}>
+              <div>
+                <strong>{row.title}</strong>
+                <em>{row.detail}</em>
+              </div>
+              <div className="recent-score">
+                <b>
+                  <Crown strokeWidth={1.75} aria-hidden />
+                  {row.result}
+                </b>
+                <span>{ago(row.at)}</span>
+              </div>
+            </li>
+          ))}
+          {recent.length === 0 && localGames > 0 && (
+            <li>
+              <div>
+                <strong>On this phone</strong>
+                <em>Local</em>
+              </div>
+              <div className="recent-score">
+                <b>
+                  {profile.wins}–{profile.losses}
+                </b>
+                <span>{profile.draws} draws</span>
+              </div>
+            </li>
+          )}
+          {recent.length === 0 && localGames === 0 && (
+            <li>
+              <div>
+                <strong>No games yet</strong>
+                <em>This visit</em>
+              </div>
+              <div className="recent-score">
+                <b>—</b>
+                <span>Play</span>
+              </div>
+            </li>
+          )}
+        </ul>
       </div>
-      {recent.length === 0 && localGames === 0 && <p className="home-note">Games from this visit show up here.</p>}
-      <ul className="recent-list">
-        {recent.map((row) => (
-          <li key={row.id}>
-            <div>
-              <strong>{row.title}</strong>
-              <em>{row.detail}</em>
-            </div>
-            <span>{ago(row.at)}</span>
-          </li>
-        ))}
-        {localGames > 0 && (
-          <li>
-            <div>
-              <strong>On this phone</strong>
-              <em>Local record</em>
-            </div>
-            <b>
-              {profile.wins}–{profile.losses}–{profile.draws}
-            </b>
-          </li>
-        )}
-      </ul>
     </div>
   );
 }

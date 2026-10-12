@@ -9,22 +9,33 @@ export const Route = createFileRoute("/")({ component: Home });
 
 function labelFor(launch: Launch): { title: string; detail: string } | null {
   if (launch.kind === "solo") {
-    return { title: `vs. ${ENGINES[launch.level].name}`, detail: launch.rated ? "Rated bot" : "Bot" };
+    return { title: `vs. ${ENGINES[launch.level].name}`, detail: "Bot" };
   }
   if (launch.kind === "pvp") return { title: "Same phone", detail: "Pass and play" };
-  if (launch.kind === "online") return { title: "Online game", detail: "Match" };
+  if (launch.kind === "online") return { title: "Online game", detail: "Online" };
   return null;
 }
 
 function Home() {
   const [launch, setLaunch] = useState<Launch | null>(null);
   const [recent, setRecent] = useState<RecentGame[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
   const onPlay = (next: Launch) => {
     const label = labelFor(next);
     if (label) {
-      setRecent((rows) => [{ id: `${Date.now()}`, ...label, at: Date.now() }, ...rows].slice(0, 8));
+      const id = `${Date.now()}`;
+      setOpenId(id);
+      setRecent((rows) => [{ id, ...label, result: "—", at: Date.now() }, ...rows].slice(0, 8));
     }
     setLaunch(next);
+  };
+  const onLeave = (summary?: { result: string }) => {
+    if (openId && summary?.result) {
+      const id = openId;
+      setRecent((rows) => rows.map((row) => (row.id === id ? { ...row, result: summary.result } : row)));
+    }
+    setOpenId(null);
+    setLaunch(null);
   };
   const home = !launch || launch.kind === "prep" || launch.kind === "chaturaja";
   if (home) {
@@ -36,7 +47,7 @@ function Home() {
   }
   return (
     <div className="screen-fade" key="play">
-      <Chaturanga launch={launch} onLeave={() => setLaunch(null)} />
+      <Chaturanga launch={launch} onLeave={onLeave} />
     </div>
   );
 }

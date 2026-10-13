@@ -1,20 +1,13 @@
 import { useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Chaturanga } from "@/components/Chaturanga";
+import { Hall } from "@/components/hall";
+import { Splash } from "@/components/splash";
 import type { RecentGame } from "@/components/Yuddha";
 import { ENGINES } from "@/game/engine";
-import { pairClocks, TIME_CONTROL, type Launch } from "@/game/launch";
+import type { Launch } from "@/game/launch";
 
 export const Route = createFileRoute("/")({ component: Home });
-
-const OPENING: Launch = {
-  kind: "solo",
-  human: "w",
-  level: 2,
-  clocks: pairClocks("blitz"),
-  increment: TIME_CONTROL.blitz.inc,
-  rated: false,
-};
 
 function labelFor(launch: Launch): { title: string; detail: string } | null {
   if (launch.kind === "solo") {
@@ -26,13 +19,11 @@ function labelFor(launch: Launch): { title: string; detail: string } | null {
 }
 
 function Home() {
-  const [launch, setLaunch] = useState<Launch>(OPENING);
-  const opening = labelFor(OPENING);
-  const [recent, setRecent] = useState<RecentGame[]>(
-    opening ? [{ id: "open", ...opening, result: "—", at: 0 }] : [],
-  );
-  const openId = useRef("open");
-  const onLaunch = (next: Launch) => {
+  const [splash, setSplash] = useState(true);
+  const [launch, setLaunch] = useState<Launch | null>(null);
+  const [recent, setRecent] = useState<RecentGame[]>([]);
+  const openId = useRef<string | null>(null);
+  const onStart = (next: Launch) => {
     const label = labelFor(next);
     if (label) {
       const id = `${Date.now()}`;
@@ -43,7 +34,17 @@ function Home() {
   };
   const onNote = (result: string) => {
     const id = openId.current;
+    if (!id) return;
     setRecent((rows) => rows.map((row) => (row.id === id ? { ...row, result } : row)));
   };
-  return <Chaturanga launch={launch} onLaunch={onLaunch} onNote={onNote} recent={recent} />;
+  return (
+    <>
+      {launch ? (
+        <Chaturanga launch={launch} onLaunch={onStart} onNote={onNote} onHome={() => setLaunch(null)} recent={recent} />
+      ) : (
+        <Hall onStart={onStart} recent={recent} />
+      )}
+      {splash && <Splash onDone={() => setSplash(false)} />}
+    </>
+  );
 }

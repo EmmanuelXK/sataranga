@@ -28,7 +28,7 @@ const AFTER_KEY = "sataranga-after-auth";
 const OPEN_KEY = "sataranga-open-signin";
 const ERROR_KEY = "sataranga-auth-error";
 
-function remember(panel: DeskPanel) {
+function remember(panel: DeskPanel | "home") {
   try {
     sessionStorage.setItem(AFTER_KEY, panel);
   } catch {
@@ -36,11 +36,11 @@ function remember(panel: DeskPanel) {
   }
 }
 
-function takeAfter(): DeskPanel | null {
+function takeAfter(): DeskPanel | "home" | null {
   try {
     const raw = sessionStorage.getItem(AFTER_KEY);
     sessionStorage.removeItem(AFTER_KEY);
-    if (raw === "play" || raw === "board" || raw === "profile" || raw === "lore") return raw;
+    if (raw === "play" || raw === "board" || raw === "profile" || raw === "lore" || raw === "home") return raw;
   } catch {
     /* ignore */
   }
@@ -56,6 +56,7 @@ export function GameDesk({
   onTime,
   focus,
   recent,
+  onHome,
 }: {
   panel: DeskPanel | null;
   onPanel: (panel: DeskPanel | null) => void;
@@ -65,6 +66,7 @@ export function GameDesk({
   onTime: (time: TimeControl) => void;
   focus: "online" | "bot" | "friend" | null;
   recent: RecentGame[];
+  onHome?: () => void;
 }) {
   const { user, isPending } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
@@ -86,14 +88,15 @@ export function GameDesk({
       sessionStorage.removeItem(OPEN_KEY);
       if (signedIn) {
         const after = takeAfter();
-        if (after) onPanel(after);
+        if (after === "home") onHome?.();
+        else if (after) onPanel(after);
         return;
       }
       if (open) onPanel("signin");
     } catch {
       /* the board is already up */
     }
-  }, [isPending, signedIn, onPanel]);
+  }, [isPending, signedIn, onPanel, onHome]);
 
   useEffect(() => {
     if (panel !== "profile" || isPending || signedIn) return;
@@ -182,8 +185,13 @@ export function GameDesk({
               <SignSheet
                 error={authError}
                 onDone={() => {
-                  const after = takeAfter() ?? "play";
-                  onPanel(after);
+                  const after = takeAfter();
+                  if (after === "home") {
+                    onHome?.();
+                    onPanel(null);
+                    return;
+                  }
+                  onPanel(after ?? "play");
                 }}
                 onClose={() => onPanel(null)}
               />

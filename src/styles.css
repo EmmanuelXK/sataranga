@@ -1686,3 +1686,229 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   place-items: center;
 }
 
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  appearance: none;
+  font: inherit;
+  color: #f6efe2;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background-color: #1c1410;
+  background-image:
+    radial-gradient(90% 36% at 50% -6%, rgba(140, 96, 52, 0.28), transparent 52%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M0 28h56M28 0v56M8 8l40 40M48 8L8 48' fill='none' stroke='%23c4a078' stroke-width='.7' opacity='.55'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #3a2a20 0%, #1c1410 46%, #120e0c 100%);
+  animation: splash-leave 0.45s ease 1.3s forwards;
+}
+.splash:focus-visible { outline: 2px solid #c4a078; outline-offset: -6px; }
+.splash-stage { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.splash-bird {
+  width: min(52vw, 210px);
+  height: auto;
+  overflow: visible;
+  animation: bird-pop 0.6s cubic-bezier(0.2, 1.35, 0.36, 1) both;
+}
+.splash-shadow { fill: rgba(0, 0, 0, 0.35); }
+.splash-lid {
+  transform-box: fill-box;
+  transform-origin: center top;
+  transform: scaleY(0);
+  animation: bird-wink 0.42s ease 0.78s both;
+}
+.splash-name {
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  letter-spacing: 0.22em;
+  font-size: 0.92rem;
+  color: #f6efe2;
+}
+@keyframes bird-pop {
+  0% { transform: translateY(16px) scale(0.2); opacity: 0; }
+  70% { transform: translateY(0) scale(1.06); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes bird-wink {
+  0%, 100% { transform: scaleY(0); }
+  45%, 62% { transform: scaleY(1); }
+}
+@keyframes splash-leave {
+  to { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash, .splash-bird, .splash-lid { animation: none; }
+  .splash-lid { transform: scaleY(0); }
+}
+
+body:has(.hall),
+body:has(.splash) {
+  background: #1c1410;
+}
+.hall {
+  height: 100dvh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px calc(6px + env(safe-area-inset-bottom));
+  background-color: #1c1410;
+  background-image:
+    radial-gradient(90% 36% at 50% -6%, rgba(140, 96, 52, 0.28), transparent 52%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M0 28h56M28 0v56M8 8l40 40M48 8L8 48' fill='none' stroke='%23c4a078' stroke-width='.7' opacity='.55'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #3a2a20 0%, #1c1410 46%, #120e0c 100%);
+  color: #f6efe2;
+  overflow: hidden;
+}
+@media (min-width: 720px) {
+  .hall {
+    width: min(440px, 100%);
+    margin-inline: auto;
+    box-shadow: 0 0 0 1px rgba(196, 160, 120, 0.28);
+  }
+}
+.hall-brand { text-align: center; flex: none; }
+.hall-brand h1 {
+  margin: 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-weight: 560;
+  font-size: 1.7rem;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+.hall-brand p {
+  margin: 4px 0 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  color: #d9cbb6;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.lobby-bar {
+  flex: none;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  border: 1px solid #c4a078;
+  background: #2a1e16;
+  color: #f6efe2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 8px;
+  font: inherit;
+}
+.lobby-bar strong { font-weight: 750; letter-spacing: 0.04em; }
+.lobby-bar b { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+.lobby-faces { display: flex; min-width: 28px; }
+.lobby-faces span, .lobby-list li > span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin-left: -8px;
+  border: 2px solid #1c1410;
+  background: #6a5342;
+  color: #f6efe2;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 750;
+  overflow: hidden;
+}
+.lobby-faces span:first-child { margin-left: 0; }
+.lobby-faces img, .lobby-list img { width: 100%; height: 100%; object-fit: cover; }
+.hall-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+.home-watch {
+  width: min(100cqw, 100cqh);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.home-watch .frame { box-sizing: border-box; width: 100%; }
+.home-watch .board { pointer-events: none; }
+.hall-pill, .hall-cancel {
+  flex: none;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid #c4a078;
+  background: #2a1e16;
+  color: #f6efe2;
+  font: inherit;
+  font-weight: 700;
+}
+.hall-start {
+  flex: none;
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 14px;
+  color: #1a120c;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 1.05rem;
+  background: linear-gradient(180deg, #f6efe2, #e6d3b4 38%, #c4a078 72%, #8d6848);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 2px 0 #140e0c;
+}
+.hall-start:disabled { opacity: 0.55; }
+.hall-note { margin: 0; color: #d9cbb6; font-size: 0.82rem; text-align: center; }
+.hall-tabs {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding-top: 2px;
+}
+.hall-tabs button {
+  min-height: 52px;
+  border: 0;
+  background: transparent;
+  color: #a89074;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.hall-tabs button svg { width: 22px; height: 22px; }
+.hall-tabs button.on { color: #f6efe2; }
+.hall-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 2px 4px;
+}
+.hall-panel h2 {
+  margin: 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-weight: 560;
+  font-size: 1.6rem;
+}
+.hall-panel p { margin: 0; color: #d9cbb6; line-height: 1.45; }
+.hall-stat { display: flex; align-items: baseline; gap: 10px; }
+.hall-stat b { color: #f6efe2; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.hall-stat span { color: #d9cbb6; }
+.lobby-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lobby-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.lobby-list li > span { margin-left: 0; }
+.hall-profile .profile-card { color: #f6efe2; }
+

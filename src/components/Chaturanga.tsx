@@ -244,11 +244,13 @@ export function Chaturanga({
   launch,
   onLaunch,
   onNote,
+  onHome,
   recent,
 }: {
   launch: Launch;
   onLaunch: (next: Launch) => void;
   onNote?: (result: string) => void;
+  onHome?: () => void;
   recent: RecentGame[];
 }) {
   const [game, setGame] = useState<Game>(() => gameFromLaunch(launch));
@@ -978,7 +980,7 @@ export function Chaturanga({
         <section className="stage" inert={sheetOpen ? true : undefined}>
           <PlayerBar
               leading={
-                <button type="button" className="back-btn" onClick={() => openPlay(null)} aria-label="Table">
+                <button type="button" className="back-btn" onClick={() => (onHome ? onHome() : openPlay(null))} aria-label={onHome ? "Home" : "Table"}>
                   <IconBack />
                 </button>
               }
@@ -1621,7 +1623,7 @@ function facesOut(type: PieceType, sq: number, orientation: Color) {
   return (fileOf(sq) < 4) === (orientation === "w");
 }
 
-function Board({
+export function Board({
   board,
   orientation,
   squares,
@@ -1773,6 +1775,7 @@ function Board({
                 last && (last.from === sq || last.to === sq) && "sq-last",
                 checkSq === sq && "sq-check",
               )}
+              tabIndex={interactive ? undefined : -1}
               aria-label={`${coord(sq)}${piece ? `, ${piece.color === "w" ? "white" : "black"} ${PIECE_META[piece.type].name}` : ""}`}
             >
               {showRank && <i className={clsx("coord rank", dark ? "coord-on-dark" : "coord-on-light")}>{rank + 1}</i>}

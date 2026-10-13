@@ -58,6 +58,10 @@ button, [role="button"] { cursor: pointer; }
 }
 .ghost img.piece-img { filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35)); }
 .face-out img.piece-img { transform: scaleX(-1); }
+img.piece-img.piece-hold { visibility: hidden; }
+.piece-inline { display: block; width: 100%; height: 100%; }
+.piece-inline svg { width: 100%; height: 100%; display: block; }
+.face-out .piece-inline { transform: scaleX(-1); }
 img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: block; }
 .arm img.piece-img { width: 86%; height: auto; aspect-ratio: 1; object-fit: contain; }
 .shell.play .wordmark {

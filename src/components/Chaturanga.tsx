@@ -1595,41 +1595,36 @@ function LastMoveArrow({
   const uy = ldy / llen;
   const px = -uy;
   const py = ux;
-  const shaft = Math.max(1.7, sqPx * 0.064);
-  const hair = Math.max(0.55, sqPx * 0.014);
-  const headLen = Math.min(sqPx * 0.2, llen * 0.46);
-  const headW = sqPx * 0.046;
-  const gem = !check && capture ? sqPx * 0.072 : 0;
-  const tip = { x: end.x - ux * gem * 0.35, y: end.y - uy * gem * 0.35 };
-  const base = { x: tip.x - ux * headLen, y: tip.y - uy * headLen };
-  const shaftPts = pts.slice(0, -1).concat(base);
-  const d = shaftPts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
-  const tone = check || capture
-    ? { ink: "#C0392B", line: "#4A120E" }
-    : color === "w"
-      ? { ink: "#E8D9B0", line: "#3A2A1C" }
-      : { ink: "#2F4A55", line: "#F4E8D4" };
-  const dash = check ? "0.07 0.034" : "1 1";
-  const head = check
-    ? `M ${(base.x + px * headW).toFixed(2)} ${(base.y + py * headW).toFixed(2)} L ${tip.x.toFixed(2)} ${tip.y.toFixed(2)} L ${(base.x - px * headW).toFixed(2)} ${(base.y - py * headW).toFixed(2)}`
-    : `M ${tip.x.toFixed(2)} ${tip.y.toFixed(2)} L ${(base.x + px * headW).toFixed(2)} ${(base.y + py * headW).toFixed(2)} L ${(base.x - px * headW).toFixed(2)} ${(base.y - py * headW).toFixed(2)} Z`;
-  const diamond = gem
-    ? `M ${end.x.toFixed(2)} ${(end.y - gem).toFixed(2)} L ${(end.x + gem).toFixed(2)} ${end.y.toFixed(2)} L ${end.x.toFixed(2)} ${(end.y + gem).toFixed(2)} L ${(end.x - gem).toFixed(2)} ${end.y.toFixed(2)} Z`
-    : "";
+  const shaft = 1.5;
+  const headLen = Math.min(8, llen * 0.48);
+  const headW = 3.4;
+  const wing = (sign: number) => ({
+    x: end.x - ux * headLen + px * headW * sign,
+    y: end.y - uy * headLen + py * headW * sign,
+  });
+  const left = wing(1);
+  const right = wing(-1);
+  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+  const chevron = `M ${left.x.toFixed(2)} ${left.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)} L ${right.x.toFixed(2)} ${right.y.toFixed(2)}`;
+  const ink = check || capture ? "#C0392B" : color === "w" ? "#E8D9B0" : "#2F4A55";
+  const hair = !check && !capture && color === "w";
   const size = sqPx * 8;
+  const stroke = {
+    fill: "none",
+    strokeLinejoin: "miter" as const,
+    strokeLinecap: "butt" as const,
+    strokeMiterlimit: 8,
+  };
   return (
-    <svg className={check ? "move-arrow move-arrow-check" : "move-arrow"} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      <path className="arrow-shaft" d={d} pathLength={1} strokeDasharray={dash} fill="none" stroke={tone.line} strokeWidth={shaft + hair * 2} strokeLinejoin="miter" strokeLinecap="butt" strokeMiterlimit={8} />
-      <path className="arrow-shaft" d={d} pathLength={1} strokeDasharray={dash} fill="none" stroke={tone.ink} strokeWidth={shaft} strokeLinejoin="miter" strokeLinecap="butt" strokeMiterlimit={8} />
-      {check ? (
+    <svg className="move-arrow" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      {hair && (
         <>
-          <path className="arrow-head" d={head} fill="none" stroke={tone.line} strokeWidth={shaft + hair * 2} strokeLinejoin="miter" strokeLinecap="butt" />
-          <path className="arrow-head" d={head} fill="none" stroke={tone.ink} strokeWidth={shaft} strokeLinejoin="miter" strokeLinecap="butt" />
+          <path className="arrow-shaft" d={d} pathLength={1} strokeDasharray="1 1" stroke="#3A2A1C" strokeWidth={shaft + 1} {...stroke} />
+          <path className="arrow-head" d={chevron} stroke="#3A2A1C" strokeWidth={shaft + 1} {...stroke} />
         </>
-      ) : (
-        <path className="arrow-head" d={head} fill={tone.ink} stroke={tone.line} strokeWidth={hair} strokeLinejoin="miter" />
       )}
-      {diamond && <path className="arrow-head" d={diamond} fill="none" stroke={tone.ink} strokeWidth={shaft * 0.85} strokeLinejoin="miter" />}
+      <path className="arrow-shaft" d={d} pathLength={1} strokeDasharray="1 1" stroke={ink} strokeWidth={shaft} {...stroke} />
+      <path className="arrow-head" d={chevron} stroke={ink} strokeWidth={shaft} {...stroke} />
     </svg>
   );
 }

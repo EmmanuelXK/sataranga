@@ -508,7 +508,7 @@ function ago(at: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function Leaderboard() {
+export function Leaderboard() {
   const [rows, setRows] = useState<BoardRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -545,18 +545,20 @@ function Leaderboard() {
   );
 }
 
-function ProfilePane({
+export function ProfilePane({
   profile,
   live,
   signedIn,
   recent,
   onDeleted,
+  onSignIn,
 }: {
   profile: Profile;
   live: LiveRating | null;
   signedIn: boolean;
   recent: RecentGame[];
   onDeleted: () => void;
+  onSignIn?: () => void;
 }) {
   const user = useCurrentUser();
   const [confirm, setConfirm] = useState(false);
@@ -604,11 +606,16 @@ function ProfilePane({
       <p className="login-duo profile-duo">
         This account is shared with YUDDHA.PRO. SATARANGA keeps its own games. YUDDHA.PRO only links here.
       </p>
-      {!signedIn && (
-        <Link to="/login" className="hero-battle">
-          Sign in
-        </Link>
-      )}
+      {!signedIn &&
+        (onSignIn ? (
+          <button type="button" className="hero-battle" onClick={onSignIn}>
+            Sign in
+          </button>
+        ) : (
+          <Link to="/login" className="hero-battle">
+            Sign in
+          </Link>
+        ))}
       {signedIn && (
         <button type="button" className="quiet" onClick={() => void signOut("/")}>
           Sign out
@@ -647,7 +654,7 @@ function ProfilePane({
   );
 }
 
-function SettingsPane({ onTutorial }: { onTutorial: () => void }) {
+export function SettingsPane({ onTutorial }: { onTutorial: () => void }) {
   const [sound, setSound] = useState(true);
   useEffect(() => setSound(soundEnabled()), []);
   return (
@@ -680,7 +687,7 @@ function SettingsPane({ onTutorial }: { onTutorial: () => void }) {
   );
 }
 
-function LorePane({ onPractice }: { onPractice: () => void }) {
+export function LorePane({ onPractice }: { onPractice: () => void }) {
   const order: PieceType[] = ["K", "M", "G", "A", "R", "P"];
   return (
     <section className="panel ms-lore" aria-labelledby="lore-title">

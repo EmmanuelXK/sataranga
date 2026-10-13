@@ -13,7 +13,9 @@ import {
   VolumeX,
 } from "lucide-react";
 import { IconBack, IconCrown, IconMoonClock } from "@/components/ceylon-icons";
+import { GameDesk, type DeskPanel } from "@/components/desk";
 import { SageCoach } from "@/components/manuscript";
+import type { RecentGame } from "@/components/Yuddha";
 import {
   ENGINES,
   PIECE_META,
@@ -43,7 +45,7 @@ import {
 import { playSound, setSoundEnabled, unlockAudio } from "@/game/sound";
 import { loadCareer, noteSolo, replaceCareer, resultStamp, type Career } from "@/game/career";
 import { loadProfile, noteBattle, replaceProfile, type Profile } from "@/game/profile";
-import { PACE_MS } from "@/game/launch";
+import { PACE_MS, TIME_CONTROL, type TimeControl } from "@/game/launch";
 import { boardTheme, BOARDS, pointInBoard, readBoard, writeBoard, type BoardId } from "@/game/boards";
 import { PieceGlyph } from "@/components/pieces";
 import { fightMs, type Strike } from "@/components/strike";
@@ -64,7 +66,7 @@ import {
   type OnlineGame,
 } from "@/game/online";
 import { P2PRoom } from "@/lib/multiplayer";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user";
 import type { Launch } from "@/game/launch";
 
 const Board3D = lazy(() => import("@/components/Board3D").then((mod) => ({ default: mod.Board3D })));
@@ -194,6 +196,28 @@ function startClocks(launch: Launch): Record<Color, number> {
   return { w: ms, b: ms };
 }
 
+function gameFromLaunch(launch: Launch): Game {
+  if (launch.kind === "solo") {
+    const engine = ENGINES[launch.level].name;
+    return {
+      ...FRESH,
+      mode: "solo",
+      human: launch.human,
+      level: launch.level,
+      bottom: launch.human,
+      names: {
+        w: launch.human === "w" ? "You" : engine,
+        b: launch.human === "b" ? "You" : engine,
+      },
+    };
+  }
+  if (launch.kind === "pvp") return { ...FRESH, mode: "pvp" };
+  if (launch.kind === "online" || launch.kind === "live") {
+    return { ...FRESH, mode: "live", names: { w: "White", b: "Black" }, bottom: "w" };
+  }
+  return FRESH;
+}
+
 function coachTip(ply: number, last: Move | null, check: boolean, end: End): string {
   if (end.kind === "win") {
     return end.reason === "resign" ? "A fair resignation. Rest, then sit again." : "Well held. The Raja is decided.";
@@ -216,8 +240,18 @@ function coachTip(ply: number, last: Move | null, check: boolean, end: End): str
   return lines[ply % lines.length]!;
 }
 
-export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summary?: { result: string }) => void }) {
-  const [game, setGame] = useState<Game>(FRESH);
+export function Chaturanga({
+  launch,
+  onLaunch,
+  onNote,
+  recent,
+}: {
+  launch: Launch;
+  onLaunch: (next: Launch) => void;
+  onNote?: (result: string) => void;
+  recent: RecentGame[];
+}) {
+  const [game, setGame] = useState<Game>(() => gameFromLaunch(launch));
   const [ply, setPly] = useState(0);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
@@ -230,6 +264,13 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [desk, setDesk] = useState<DeskPanel | null>(null);
+  const [playFocus, setPlayFocus] = useState<"online" | "bot" | "friend" | null>(null);
+  const [time, setTime] = useState<TimeControl>("blitz");
+  const { user } = useCurrentUserState();
+  const signedIn = Boolean(user && !user.isDevFallback);
+  const onNoteRef = useRef(onNote);
+  onNoteRef.current = onNote;
   const [youRating, setYouRating] = useState<number | null>(null);
   const [overOpen, setOverOpen] = useState(false);
   const [confirm, setConfirm] = useState<null | "new" | "resign">(null);
@@ -261,6 +302,20 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
   liveColorRef.current = liveColor;
 
   useEffect(() => {
+    setSelected(null);
+    setFlight(null);
+    setHanded(false);
+    setOverOpen(false);
+    setServerFinish(null);
+    setRatedLine(null);
+    setLandSq(null);
+    setConfirm(null);
+    setMenuOpen(false);
+    setThinking(false);
+    botGameId.current = "";
+    recorded.current = "";
+    resultSnap.current = null;
+    setClock(startClocks(launch));
     if (launch.kind === "resume") {
       const saved = loadGame();
       if (saved) {
@@ -810,7 +865,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
           ? "Pass & play · board locked"
           : "Pass & play";
 
-  const sheetOpen = rulesOpen || settingsOpen || overOpen || confirm !== null;
+  const sheetOpen = rulesOpen || settingsOpen || overOpen || confirm !== null || menuOpen || desk !== null;
   const mine: Color | null = game.mode === "live" ? liveColor : game.mode === "solo" ? game.human : null;
   const seatRating = (color: Color) => (youRating != null && mine === color ? String(youRating) : null);
   const mark =
@@ -823,8 +878,52 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
             ? "1–0"
             : "0–1"
           : "—";
+
+  useEffect(() => {
+    if (!endKey) return;
+    onNoteRef.current?.(mark);
+  }, [endKey, mark]);
+
   function leave() {
-    onLeave({ result: mark });
+    onNoteRef.current?.(mark);
+    setOverOpen(false);
+    setMenuOpen(false);
+    setPlayFocus(null);
+    setDesk("play");
+  }
+
+  function openPlay(focus: "online" | "bot" | "friend" | null) {
+    setMenuOpen(false);
+    setPlayFocus(focus);
+    setDesk("play");
+  }
+
+  function openOnline() {
+    setMenuOpen(false);
+    if (!signedIn) {
+      try {
+        sessionStorage.setItem("sataranga-after-auth", "play");
+      } catch {
+        /* the sheet still opens */
+      }
+      setDesk("signin");
+      return;
+    }
+    openPlay("online");
+  }
+
+  function openProfile() {
+    setMenuOpen(false);
+    if (!signedIn) {
+      try {
+        sessionStorage.setItem("sataranga-after-auth", "profile");
+      } catch {
+        /* the sheet still opens */
+      }
+      setDesk("signin");
+      return;
+    }
+    setDesk("profile");
   }
 
   const coach =
@@ -879,7 +978,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
         <section className="stage" inert={sheetOpen ? true : undefined}>
           <PlayerBar
               leading={
-                <button type="button" className="back-btn" onClick={leave} aria-label="Lobby">
+                <button type="button" className="back-btn" onClick={() => openPlay(null)} aria-label="Table">
                   <IconBack />
                 </button>
               }
@@ -987,108 +1086,6 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
           />
 
           <div className="play-more">
-            {menuOpen && (
-              <div className="play-menu" role="menu" aria-label="Game menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    undo();
-                  }}
-                  disabled={
-                    launch.kind === "online" ||
-                    (launch.kind === "solo" && !!launch.strict) ||
-                    !!game.flagged ||
-                    (!game.moves.length && !game.resigned)
-                  }
-                >
-                  <Undo2 strokeWidth={1.75} aria-hidden /> Undo
-                </button>
-                {game.mode !== "pvp" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      const cur = game.mode === "solo" ? (game.bottom ?? game.human) : (game.bottom ?? view.turn);
-                      setGame((g) => ({ ...g, bottom: other(cur) }));
-                      setFlight(null);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <ArrowLeftRight strokeWidth={1.75} aria-hidden /> Flip
-                  </button>
-                )}
-                {launch.kind !== "online" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      if (game.moves.length && end.kind === "ongoing") setConfirm("new");
-                      else newGame();
-                    }}
-                  >
-                    <Plus strokeWidth={1.75} aria-hidden /> New
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={end.kind !== "ongoing" || (game.mode === "solo" && live.turn !== game.human)}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirm("resign");
-                  }}
-                >
-                  <Flag strokeWidth={1.75} aria-hidden /> Resign
-                </button>
-                {launch.kind === "online" && end.kind === "ongoing" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void offerDraw(launch.gameId).then((next) => applyOnlineRef.current(next));
-                    }}
-                  >
-                    Draw
-                  </button>
-                )}
-                {launch.kind === "online" && game.moves.length < 2 && end.kind === "ongoing" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void abortGame(launch.gameId).then((next) => applyOnlineRef.current(next));
-                    }}
-                  >
-                    Abort
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setRulesOpen(true);
-                  }}
-                >
-                  <BookOpen strokeWidth={1.75} aria-hidden /> Moves
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <Settings strokeWidth={1.75} aria-hidden /> Settings
-                </button>
-              </div>
-            )}
             <div className="stone-row">
               <button
                 type="button"
@@ -1115,8 +1112,8 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
                 className="stone-btn"
                 aria-label="Game menu"
                 aria-expanded={menuOpen}
-                aria-haspopup="menu"
-                onClick={() => setMenuOpen((open) => !open)}
+                aria-haspopup="dialog"
+                onClick={() => setMenuOpen(true)}
               >
                 Menu
               </button>
@@ -1148,7 +1145,131 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
               : headline(end, game.names)}
       </p>
 
-      <Sheet open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="SATARANGA. Locked. Old Ceylon Chaturanga.">
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen} className="leather" title="Menu" description="Online, bot, friend, leaderboard, profile, and lore.">
+        <div className="leather-nav" role="group" aria-label="How to play">
+          <button type="button" className="wide" onClick={openOnline}>
+            Play online
+          </button>
+          <button type="button" onClick={() => openPlay("bot")}>
+            Bot
+          </button>
+          <button type="button" onClick={() => openPlay("friend")}>
+            Friend
+          </button>
+        </div>
+        <div className="choice" role="radiogroup" aria-label="Time">
+          <button type="button" role="radio" aria-checked={time === "blitz"} className={clsx(time === "blitz" && "on")} onClick={() => setTime("blitz")}>
+            Blitz {TIME_CONTROL.blitz.label}
+          </button>
+          <button type="button" role="radio" aria-checked={time === "rapid"} className={clsx(time === "rapid" && "on")} onClick={() => setTime("rapid")}>
+            Rapid {TIME_CONTROL.rapid.label}
+          </button>
+        </div>
+        <div className="leather-nav" role="group" aria-label="Table">
+          <button type="button" onClick={() => { setMenuOpen(false); setDesk("board"); }}>
+            Leaderboard
+          </button>
+          <button type="button" onClick={openProfile}>
+            Profile
+          </button>
+          <button type="button" className="wide" onClick={() => { setMenuOpen(false); setDesk("lore"); }}>
+            Lore
+          </button>
+        </div>
+        <div className="leather-list">
+          <button
+            type="button"
+            className="leather-row"
+            onClick={() => {
+              setMenuOpen(false);
+              undo();
+            }}
+            disabled={
+              launch.kind === "online" ||
+              (launch.kind === "solo" && !!launch.strict) ||
+              !!game.flagged ||
+              (!game.moves.length && !game.resigned)
+            }
+          >
+            <Undo2 strokeWidth={1.75} aria-hidden /> Undo
+          </button>
+          {game.mode !== "pvp" && (
+            <button
+              type="button"
+              className="leather-row"
+              onClick={() => {
+                const cur = game.mode === "solo" ? (game.bottom ?? game.human) : (game.bottom ?? view.turn);
+                setGame((g) => ({ ...g, bottom: other(cur) }));
+                setFlight(null);
+                setMenuOpen(false);
+              }}
+            >
+              <ArrowLeftRight strokeWidth={1.75} aria-hidden /> Flip
+            </button>
+          )}
+          {launch.kind !== "online" && (
+            <button
+              type="button"
+              className="leather-row"
+              onClick={() => {
+                setMenuOpen(false);
+                if (game.moves.length && end.kind === "ongoing") setConfirm("new");
+                else newGame();
+              }}
+            >
+              <Plus strokeWidth={1.75} aria-hidden /> New game
+            </button>
+          )}
+          {launch.kind === "online" && game.moves.length < 2 && end.kind === "ongoing" && (
+            <button
+              type="button"
+              className="leather-row"
+              onClick={() => {
+                setMenuOpen(false);
+                void abortGame(launch.gameId).then((next) => applyOnlineRef.current(next));
+              }}
+            >
+              Abort
+            </button>
+          )}
+          <button
+            type="button"
+            className="leather-row"
+            onClick={() => {
+              setMenuOpen(false);
+              setRulesOpen(true);
+            }}
+          >
+            <BookOpen strokeWidth={1.75} aria-hidden /> Moves
+          </button>
+          <button
+            type="button"
+            className="leather-row"
+            onClick={() => {
+              setMenuOpen(false);
+              setSettingsOpen(true);
+            }}
+          >
+            <Settings strokeWidth={1.75} aria-hidden /> Settings
+          </button>
+        </div>
+      </Sheet>
+
+      <GameDesk
+        panel={desk}
+        onPanel={setDesk}
+        onPlay={onLaunch}
+        onPractice={() => {
+          setDesk(null);
+          setRulesOpen(true);
+        }}
+        time={time}
+        onTime={setTime}
+        focus={playFocus}
+        recent={recent}
+      />
+
+      <Sheet className="leather" open={rulesOpen} onOpenChange={setRulesOpen} title="How the pieces move" description="SATARANGA. Locked. Old Ceylon Chaturanga.">
         <ul className="rules">
           {(Object.keys(PIECE_META) as PieceType[]).map((type) => (
             <li key={type}>
@@ -1174,7 +1295,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
         </div>
       </Sheet>
 
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Settings" description="Game mode, board direction, and sound.">
+      <Sheet className="leather" open={settingsOpen} onOpenChange={setSettingsOpen} title="Settings" description="Game mode, board direction, and sound.">
         {launch.kind === "live" ? (
           <p className="side-note">Private table. Go back to the lobby to start a different game.</p>
         ) : (
@@ -1305,6 +1426,7 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
       </Sheet>
 
       <Sheet
+        className="leather"
         open={overOpen && settled}
         onOpenChange={setOverOpen}
         title={serverFinish === "abort" ? "Aborted" : end.kind === "draw" || serverFinish === "draw" ? "Draw" : "Game over"}
@@ -1319,18 +1441,19 @@ export function Chaturanga({ launch, onLeave }: { launch: Launch; onLeave: (summ
         {ratedLine ? <p className="over-copy rating-result">{ratedLine}</p> : null}
         <div className="over-actions">
           <button type="button" className="btn primary" onClick={() => (launch.kind === "online" ? leave() : newGame())}>
-            {launch.kind === "online" ? "Lobby" : "Rematch"}
+            {launch.kind === "online" ? "Table" : "Rematch"}
           </button>
           <button type="button" className="btn" onClick={() => setOverOpen(false)}>
             Review board
           </button>
           <button type="button" className="btn" onClick={leave}>
-            Lobby
+            Table
           </button>
         </div>
       </Sheet>
 
       <Sheet
+        className="leather"
         open={confirm !== null}
         onOpenChange={(open) => {
           if (!open) setConfirm(null);
@@ -1818,18 +1941,20 @@ function Sheet({
   title,
   description,
   children,
+  className,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="overlay" />
-        <Dialog.Content className="sheet">
+        <Dialog.Content className={clsx("sheet", className)}>
           <div className="grabber" />
           <Dialog.Title className="sheet-title">{title}</Dialog.Title>
           <Dialog.Description className="sr-only">{description}</Dialog.Description>

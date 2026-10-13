@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Chaturanga } from "@/components/Chaturanga";
-import { Yuddha, type RecentGame } from "@/components/Yuddha";
+import type { RecentGame } from "@/components/Yuddha";
 import { ENGINES } from "@/game/engine";
-import type { Launch } from "@/game/launch";
+import { pairClocks, TIME_CONTROL, type Launch } from "@/game/launch";
 
 export const Route = createFileRoute("/")({ component: Home });
+
+const OPENING: Launch = {
+  kind: "solo",
+  human: "w",
+  level: 2,
+  clocks: pairClocks("blitz"),
+  increment: TIME_CONTROL.blitz.inc,
+  rated: false,
+};
 
 function labelFor(launch: Launch): { title: string; detail: string } | null {
   if (launch.kind === "solo") {
@@ -17,37 +26,24 @@ function labelFor(launch: Launch): { title: string; detail: string } | null {
 }
 
 function Home() {
-  const [launch, setLaunch] = useState<Launch | null>(null);
-  const [recent, setRecent] = useState<RecentGame[]>([]);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const onPlay = (next: Launch) => {
+  const [launch, setLaunch] = useState<Launch>(OPENING);
+  const opening = labelFor(OPENING);
+  const [recent, setRecent] = useState<RecentGame[]>(
+    opening ? [{ id: "open", ...opening, result: "—", at: 0 }] : [],
+  );
+  const openId = useRef("open");
+  const onLaunch = (next: Launch) => {
     const label = labelFor(next);
     if (label) {
       const id = `${Date.now()}`;
-      setOpenId(id);
+      openId.current = id;
       setRecent((rows) => [{ id, ...label, result: "—", at: Date.now() }, ...rows].slice(0, 8));
     }
-    setLaunch(next);
+    setLaunch({ ...next });
   };
-  const onLeave = (summary?: { result: string }) => {
-    if (openId && summary?.result) {
-      const id = openId;
-      setRecent((rows) => rows.map((row) => (row.id === id ? { ...row, result: summary.result } : row)));
-    }
-    setOpenId(null);
-    setLaunch(null);
+  const onNote = (result: string) => {
+    const id = openId.current;
+    setRecent((rows) => rows.map((row) => (row.id === id ? { ...row, result } : row)));
   };
-  const home = !launch || launch.kind === "prep" || launch.kind === "chaturaja";
-  if (home) {
-    return (
-      <div className="screen-fade" key="home">
-        <Yuddha onPlay={onPlay} recent={recent} />
-      </div>
-    );
-  }
-  return (
-    <div className="screen-fade" key="play">
-      <Chaturanga launch={launch} onLeave={onLeave} />
-    </div>
-  );
+  return <Chaturanga launch={launch} onLaunch={onLaunch} onNote={onNote} recent={recent} />;
 }

@@ -1540,3 +1540,149 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   border-color: #a89074;
 }
 
+.sheet.leather {
+  background:
+    linear-gradient(180deg, rgba(255, 230, 196, 0.08), transparent 28%),
+    #2a1e16;
+  color: #f6efe2;
+  border-top: 1px solid #c4a078;
+  box-shadow: inset 0 1px 0 rgba(255, 228, 190, 0.16), 0 -16px 40px rgba(0, 0, 0, 0.45);
+}
+.sheet.leather .grabber { background: #c4a078; }
+.sheet.leather .sheet-title {
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  color: #f6efe2;
+}
+.sheet.leather .sheet-body,
+.sheet.leather .rules strong,
+.sheet.leather .over-title,
+.sheet.leather .panel h2,
+.sheet.leather .profile-card h2,
+.sheet.leather .profile-rating b {
+  color: #f6efe2;
+}
+.sheet.leather .rules p,
+.sheet.leather .rules strong span,
+.sheet.leather .rule-notes p,
+.sheet.leather .over-copy,
+.sheet.leather .side-note,
+.sheet.leather .field > span,
+.sheet.leather .yd-copy,
+.sheet.leather .yd-fine,
+.sheet.leather .yd-fine a,
+.sheet.leather .profile-card p,
+.sheet.leather .profile-next,
+.sheet.leather .profile-rating em,
+.sheet.leather .board-list span,
+.sheet.leather .login-duo {
+  color: #d9cbb6;
+}
+.sheet.leather .panel,
+.sheet.leather .profile-card {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+.sheet.leather .choice button,
+.sheet.leather .btn,
+.sheet.leather .segment button,
+.sheet.leather .sound-row {
+  background: #3e2e24;
+  color: #f6efe2;
+  border: 1px solid #c4a078;
+  border-radius: 10px;
+}
+.sheet.leather .choice button.on,
+.sheet.leather .btn.primary,
+.sheet.leather .segment button[aria-checked="true"] {
+  background: #f3e6cc;
+  color: #2a1c12;
+}
+.leather-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.leather-nav button,
+.leather-go,
+.leather-row,
+.sheet.leather .quiet,
+.sheet.leather .hero-battle,
+.sheet.leather a.hero-battle,
+.sheet.leather .resume-banner {
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid #241810;
+  color: #f6efe2;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  background:
+    linear-gradient(180deg, rgba(255, 230, 196, 0.18), transparent 42%),
+    linear-gradient(180deg, #6a5342, #3e2e24);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 190, 0.22), 0 2px 0 #140e0c;
+}
+.leather-nav button.wide { grid-column: 1 / -1; }
+.leather-go,
+.sheet.leather .hero-battle,
+.sheet.leather a.hero-battle,
+.sheet.leather .quiet,
+.sheet.leather .resume-banner { width: 100%; }
+.leather-list { display: flex; flex-direction: column; gap: 6px; }
+.leather-stack { display: flex; flex-direction: column; gap: 8px; }
+.leather-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 0 12px;
+  letter-spacing: 0.01em;
+  font-weight: 650;
+  font-size: 0.92rem;
+  text-transform: none;
+}
+.leather-row svg { width: 16px; height: 16px; }
+.leather-go:disabled,
+.leather-row:disabled,
+.leather-nav button:disabled { opacity: 0.45; }
+.leather-h {
+  margin: 8px 0 4px;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 560;
+  color: #f6efe2;
+}
+.leather-field { display: flex; flex-direction: column; gap: 6px; }
+.leather-field span { color: #d9cbb6; font-size: 0.75rem; font-weight: 700; }
+.leather-field input {
+  font: inherit;
+  color: #f6efe2;
+  background: #1a120e;
+  border: 1px solid #c4a078;
+  border-radius: 10px;
+  min-height: 48px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 12px;
+}
+.leather-field input::placeholder { color: #a89074; }
+.leather-note { color: #d9cbb6; margin: 0; font-size: 0.86rem; line-height: 1.4; }
+.leather-error { color: #ffb4ae; margin: 0; font-size: 0.82rem; line-height: 1.35; }
+.leather-hold {
+  margin: auto;
+  text-align: center;
+  color: #f6efe2;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 1.35rem;
+}
+.shell.play.ms-game:has(.leather-hold) {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+}
+

@@ -12,11 +12,16 @@ export const PACE_MS: Record<Pace, number> = {
 /** Same base time on both sides. Increment is added after a move. */
 export type Clocks = { w: number; b: number };
 
+/** Playable clocks. Classical is configured for later and is not selectable in V1. */
 export type TimeControl = "blitz" | "rapid";
 
-export const TIME_CONTROL: Record<TimeControl, { ms: number; inc: number; label: string; name: string }> = {
+export const TIME_CONTROL: Record<
+  TimeControl | "classical",
+  { ms: number; inc: number; label: string; name: string }
+> = {
   blitz: { ms: 3 * 60 * 1000, inc: 2 * 1000, label: "3+2", name: "Blitz" },
   rapid: { ms: 5 * 60 * 1000, inc: 10 * 1000, label: "5+10", name: "Rapid" },
+  classical: { ms: 10 * 60 * 1000, inc: 10 * 1000, label: "10+10", name: "Classical" },
 };
 
 export function pairClocks(time: TimeControl): Clocks {

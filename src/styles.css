@@ -1938,3 +1938,118 @@ body:has(.splash) {
 .lobby-list li > span { margin-left: 0; }
 .hall-profile .profile-card { color: #f6efe2; }
 
+.time-names {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+.time-name {
+  position: relative;
+  flex: none;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid #c4a078;
+  background: #3e2e24;
+  color: #f6efe2;
+  font: inherit;
+  font-weight: 750;
+  font-size: 0.86rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+.time-name svg { width: 12px; height: 12px; flex: none; }
+.time-name.on {
+  background: #f3e6cc;
+  color: #2a1c12;
+  border-color: #e6d3b4;
+}
+.time-name.locked { color: #d9cbb6; }
+.premium-tag {
+  position: absolute;
+  top: -10px;
+  right: 2px;
+  background: #c4a078;
+  color: #1a120c;
+  font-style: normal;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.45;
+}
+.time-toast {
+  min-height: 1.15em;
+  margin: 8px 0 0;
+  text-align: center;
+  color: #e6d3b4;
+  font-size: 0.78rem;
+}
+.medallions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.medallion {
+  flex: none;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #f6efe2;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+}
+.medallion svg { width: 100%; height: auto; display: block; }
+.medallion span { font-weight: 750; font-size: 0.82rem; }
+.rated-caption {
+  margin: 14px 0 2px;
+  text-align: center;
+  color: #d9cbb6;
+  font-size: 0.78rem;
+}
+.seek-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(18, 12, 10, 0.94);
+  color: #f6efe2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+}
+.seek-veil p {
+  margin: 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 560;
+}
+.seek-medallion { width: min(168px, 46vw); animation: medallion-spin 1.8s linear infinite; }
+.seek-medallion svg { width: 100%; height: auto; display: block; }
+.enter-medallion { animation: medallion-enter 700ms ease-out both; }
+.seek-cancel { flex: none; width: min(220px, 70%); }
+.enter-veil { border: 0; width: 100%; }
+@keyframes medallion-spin { to { transform: rotate(360deg); } }
+@keyframes medallion-enter {
+  from { transform: scale(0.84); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seek-medallion, .enter-medallion { animation: none; }
+}
+

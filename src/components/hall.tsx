@@ -6,7 +6,6 @@ import { GameDesk } from "@/components/desk";
 import { ProfilePane } from "@/components/Yuddha";
 import { loadCareer, totals } from "@/game/career";
 import {
-  ENGINES,
   applyMove,
   inCheck,
   kingSquare,
@@ -19,7 +18,7 @@ import {
 } from "@/game/engine";
 import { boardTheme } from "@/game/boards";
 import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
-import { createInvite, enqueue, leaveQueue, myRating, type LiveRating } from "@/game/online";
+import { enqueue, leaveQueue, myRating, type LiveRating } from "@/game/online";
 import { hydrateAccount, loadProfile, type Profile } from "@/game/profile";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getSupabase } from "@/lib/supabase/client";
@@ -62,22 +61,8 @@ function writePick(pick: TablePick) {
   }
 }
 
-function spaced(label: string) {
-  return label.replace("+", " + ");
-}
-
-function pillText(pick: TablePick): string {
-  const control = TIME_CONTROL[pick.time];
-  const clock = spaced(control.label);
-  const stake = pick.rated ? "Rated" : "Casual";
-  if (pick.mode === "bot") return `${clock} · ${ENGINES[pick.level].name} · ${stake}`;
-  if (pick.mode === "pvp") return `${clock} · Same phone`;
-  if (pick.mode === "invite") return `${clock} · Invite · ${stake}`;
-  return `${clock} · ${control.name} · ${stake}`;
-}
-
-function needsAccount(pick: TablePick) {
-  return pick.mode === "online" || pick.mode === "invite" || (pick.rated && pick.mode !== "pvp");
+function pillText(): string {
+  return "Blitz";
 }
 
 export function Hall({
@@ -95,6 +80,8 @@ export function Hall({
   const [lobbyOpen, setLobbyOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seat[] | null>(null);
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
@@ -103,9 +90,44 @@ export function Hall({
   pickRef.current = pick;
   const onStartRef = useRef(onStart);
   onStartRef.current = onStart;
+  const enterTimer = useRef(0);
+  const toastTimer = useRef(0);
+
+  function showToast(text: string) {
+    setToast(text);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2400);
+  }
+
+  function playBot() {
+    setTimeOpen(false);
+    setToast(null);
+    const go = () => begin({ ...pickRef.current, mode: "bot", time: "blitz", rated: true });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      go();
+      return;
+    }
+    setEntering(true);
+    window.clearTimeout(enterTimer.current);
+    enterTimer.current = window.setTimeout(() => {
+      setEntering(false);
+      go();
+    }, 700);
+  }
+
+  function skipEntry() {
+    window.clearTimeout(enterTimer.current);
+    setEntering(false);
+    begin({ ...pickRef.current, mode: "bot", time: "blitz", rated: true });
+  }
 
   useEffect(() => {
     setPick(readPick());
+    return () => {
+      window.clearTimeout(enterTimer.current);
+      window.clearTimeout(toastTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -167,14 +189,13 @@ export function Hall({
     if (!searching) return;
     let on = true;
     const tick = () => {
-      const current = pickRef.current;
-      void enqueue(current.time, current.rated)
+      void enqueue("blitz", true)
         .then((game) => {
           if (!on) return;
           if (game.id) {
             setSearching(false);
             onStartRef.current({ kind: "online", gameId: game.id });
-          } else setNote(`Looking for a ${TIME_CONTROL[current.time].name} game…`);
+          }
         })
         .catch((err: unknown) => {
           if (!on) return;
@@ -198,8 +219,16 @@ export function Hall({
 
   function begin(current = pickRef.current, authed = signedIn) {
     setNote(null);
-    writePick(current);
-    if (needsAccount(current) && !authed) {
+    setTimeOpen(false);
+    const next: TablePick = {
+      ...current,
+      time: "blitz",
+      rated: true,
+      mode: current.mode === "invite" ? "pvp" : current.mode,
+    };
+    writePick(next);
+    setPick(next);
+    if (next.mode === "online" && !authed) {
       try {
         sessionStorage.setItem("sataranga-after-auth", "home");
       } catch {
@@ -208,29 +237,20 @@ export function Hall({
       setAuthOpen(true);
       return;
     }
-    const control = TIME_CONTROL[current.time];
-    if (current.mode === "bot") {
+    const control = TIME_CONTROL.blitz;
+    if (next.mode === "bot") {
       onStart({
         kind: "solo",
         human: "w",
-        level: current.level,
-        clocks: pairClocks(current.time),
+        level: next.level,
+        clocks: pairClocks("blitz"),
         increment: control.inc,
-        rated: current.rated && authed,
+        rated: true,
       });
       return;
     }
-    if (current.mode === "pvp") {
-      onStart({ kind: "pvp", clocks: pairClocks(current.time), increment: control.inc });
-      return;
-    }
-    if (current.mode === "invite") {
-      void createInvite(current.time, current.rated)
-        .then((game) => {
-          if (!game.id) throw new Error(game.error || "The invite did not open.");
-          onStart({ kind: "online", gameId: game.id });
-        })
-        .catch((err: unknown) => setNote(err instanceof Error ? err.message : "The invite did not open."));
+    if (next.mode === "pvp") {
+      onStart({ kind: "pvp", clocks: pairClocks("blitz"), increment: control.inc });
       return;
     }
     setSearching(true);
@@ -267,25 +287,12 @@ export function Hall({
           </div>
 
           <button type="button" className="hall-pill" onClick={() => setTimeOpen(true)} aria-haspopup="dialog">
-            {pillText(pick)}
+            {pillText()}
           </button>
           {note && <p className="hall-note">{note}</p>}
-          <button type="button" className="hall-start" disabled={searching || isPending} onClick={() => begin()}>
-            {searching ? "PAIRING…" : "START GAME"}
+          <button type="button" className="hall-start" disabled={searching || entering || isPending} onClick={() => begin()}>
+            START GAME
           </button>
-          {searching && (
-            <button
-              type="button"
-              className="hall-cancel"
-              onClick={() => {
-                setSearching(false);
-                setNote(null);
-                void leaveQueue();
-              }}
-            >
-              Cancel search
-            </button>
-          )}
         </>
       )}
 
@@ -342,64 +349,49 @@ export function Hall({
         </Tab>
       </nav>
 
-      <LeatherDialog open={timeOpen} onOpenChange={setTimeOpen} title="Time and type" description="Choose the clock, the opponent, and whether the game is rated.">
-        <div className="choice" role="radiogroup" aria-label="Time">
-          <Pick on={pick.time === "blitz"} onClick={() => save({ ...pick, time: "blitz" })}>
-            Blitz 3 + 2
-          </Pick>
-          <Pick on={pick.time === "rapid"} onClick={() => save({ ...pick, time: "rapid" })}>
-            Rapid 5 + 10
-          </Pick>
+      <LeatherDialog open={timeOpen} onOpenChange={setTimeOpen} title="Time and type" description="Blitz is the clock. Every game is rated.">
+        <div className="time-names" role="group" aria-label="Time">
+          <button type="button" className="time-name on" aria-pressed="true">
+            Blitz
+          </button>
+          <button
+            type="button"
+            className="time-name locked"
+            title="Unlocks when more players are online"
+            onClick={() => showToast("Unlocks when more players are online")}
+          >
+            <LockIcon />
+            Rapid
+          </button>
+          <button
+            type="button"
+            className="time-name locked classical"
+            title="Premium coming soon"
+            onClick={() => showToast("Premium coming soon")}
+          >
+            <LockIcon />
+            Classical
+            <em className="premium-tag">Premium</em>
+          </button>
         </div>
-        <div className="choice" role="radiogroup" aria-label="Type">
-          <Pick on={pick.mode === "online"} onClick={() => save({ ...pick, mode: "online" })}>
-            Online
-          </Pick>
-          <Pick on={pick.mode === "bot"} onClick={() => save({ ...pick, mode: "bot" })}>
-            Bot
-          </Pick>
-          <Pick on={pick.mode === "pvp" || pick.mode === "invite"} onClick={() => save({ ...pick, mode: "pvp" })}>
-            Friend
-          </Pick>
+        <p className="time-toast" role="status">
+          {toast ?? ""}
+        </p>
+        <div className="medallions">
+          <button type="button" className="medallion" onClick={() => begin({ ...pick, mode: "online", time: "blitz", rated: true })}>
+            <LotusMark />
+            <span>Online</span>
+          </button>
+          <button type="button" className="medallion" onClick={playBot}>
+            <FowlMark />
+            <span>Bot</span>
+          </button>
+          <button type="button" className="medallion" onClick={() => begin({ ...pick, mode: "pvp", time: "blitz", rated: true })}>
+            <PairMark />
+            <span>Friend</span>
+          </button>
         </div>
-        {pick.mode === "bot" && (
-          <div className="choice" role="radiogroup" aria-label="Bot">
-            {([1, 2, 3, 4] as Level[]).map((level) => (
-              <Pick key={level} on={pick.level === level} onClick={() => save({ ...pick, level })}>
-                {ENGINES[level].name}
-              </Pick>
-            ))}
-          </div>
-        )}
-        {(pick.mode === "pvp" || pick.mode === "invite") && (
-          <div className="choice" role="radiogroup" aria-label="Friend">
-            <Pick on={pick.mode === "pvp"} onClick={() => save({ ...pick, mode: "pvp" })}>
-              Same phone
-            </Pick>
-            <Pick on={pick.mode === "invite"} onClick={() => save({ ...pick, mode: "invite" })}>
-              Invite
-            </Pick>
-          </div>
-        )}
-        {pick.mode !== "pvp" && (
-          <div className="choice" role="radiogroup" aria-label="Stakes">
-            <Pick on={!pick.rated} onClick={() => save({ ...pick, rated: false })}>
-              Casual
-            </Pick>
-            <Pick on={pick.rated} onClick={() => save({ ...pick, rated: true })}>
-              Rated
-            </Pick>
-          </div>
-        )}
-        <button
-          type="button"
-          className="leather-go"
-          onClick={() => {
-            setTimeOpen(false);
-          }}
-        >
-          Use {pillText(pick)}
-        </button>
+        <p className="rated-caption">All games rated · No ads</p>
       </LeatherDialog>
 
       <LeatherDialog open={lobbyOpen} onOpenChange={setLobbyOpen} title="Lobby" description="People in SATARANGA right now.">
@@ -441,6 +433,34 @@ export function Hall({
           begin(current, true);
         }}
       />
+
+      {searching && (
+        <div className="seek-veil" role="dialog" aria-modal="true" aria-labelledby="seek-title">
+          <div className="seek-medallion">
+            <LotusMark />
+          </div>
+          <p id="seek-title">Finding opponent…</p>
+          <button
+            type="button"
+            className="hall-cancel seek-cancel"
+            onClick={() => {
+              setSearching(false);
+              setNote(null);
+              void leaveQueue();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {entering && (
+        <button type="button" className="seek-veil enter-veil" onClick={skipEntry}>
+          <div className="seek-medallion enter-medallion">
+            <FowlMark />
+          </div>
+          <p>Bot</p>
+        </button>
+      )}
     </main>
   );
 }
@@ -602,14 +622,6 @@ function Tab({
   );
 }
 
-function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; children: string }) {
-  return (
-    <button type="button" role="radio" aria-checked={on} className={clsx(on && "on")} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
 function LeatherDialog({
   open,
   onOpenChange,
@@ -665,5 +677,75 @@ function ProfileIcon() {
       <circle cx="12" cy="9" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
       <path d="M5 19c1.2-3.2 3.4-4.8 7-4.8S17.8 15.8 19 19" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function Ring({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 88 88" aria-hidden="true">
+      <circle cx="44" cy="44" r="40" fill="#3e2e24" stroke="#c4a078" strokeWidth="2.4" />
+      <circle cx="44" cy="44" r="33.5" fill="#5c2432" stroke="#8d6848" strokeWidth="1.2" />
+      <circle cx="44" cy="44" r="31" fill="none" stroke="#c4a078" strokeWidth="0.6" opacity="0.7" />
+      {children}
+    </svg>
+  );
+}
+
+function LotusMark() {
+  const petals = [0, 45, 90, 135, 180, 225, 270, 315];
+  return (
+    <Ring>
+      {petals.map((deg) => (
+        <ellipse
+          key={deg}
+          cx="44"
+          cy="24"
+          rx="6.2"
+          ry="12"
+          fill={deg % 90 === 0 ? "#c4a078" : "#8d4034"}
+          stroke="#2a1c12"
+          strokeWidth="0.6"
+          transform={`rotate(${deg} 44 44)`}
+        />
+      ))}
+      <circle cx="44" cy="44" r="8" fill="#e6d3b4" stroke="#c4a078" strokeWidth="1" />
+      <circle cx="44" cy="44" r="3" fill="#8d4034" />
+    </Ring>
+  );
+}
+
+function FowlMark() {
+  return (
+    <Ring>
+      <path d="M28 50c2-14 12-22 22-20 8 1 14 8 14 16 0 10-8 16-18 16-8 0-16-4-18-12z" fill="#3e2e24" stroke="#e6d3b4" strokeWidth="1" />
+      <path d="M34 42c6-8 16-10 22-4 1 2 0 4-2 4-6-2-14 1-18 6-1-2-2-4-2-6z" fill="#e6d3b4" />
+      <path d="M24 40c1-10 8-16 14-14 1 4-1 8-4 11-4 3-8 4-10 3z" fill="#6a5342" stroke="#e6d3b4" strokeWidth="0.6" />
+      <path d="M22 34c1-4 4-6 5-4 0 3-2 5-4 6-1 0-1-1-1-2z" fill="#8d4034" />
+      <circle cx="30" cy="44" r="2.4" fill="#f6efe2" />
+      <circle cx="30.6" cy="44.2" r="1.1" fill="#1a120c" />
+      <path d="M48 58c1 6 0 10-2 12M40 60c1 6 0 10-2 11" fill="none" stroke="#c4a078" strokeWidth="1.4" strokeLinecap="round" />
+    </Ring>
+  );
+}
+
+function PairMark() {
+  return (
+    <Ring>
+      <circle cx="34" cy="36" r="5" fill="#e6d3b4" />
+      <path d="M24 58c1.2-9 5-13 10-13s8.8 4 10 13" fill="#c4a078" />
+      <circle cx="54" cy="36" r="5" fill="#e6d3b4" />
+      <path d="M44 58c1.2-9 5-13 10-13s8.8 4 10 13" fill="#c4a078" />
+      <path d="M30 30.5c.4-3 1.6-4.2 4-4.2s3.6 1.2 4 4.2" fill="none" stroke="#c4a078" strokeWidth="1.3" />
+      <path d="M50 30.5c.4-3 1.6-4.2 4-4.2s3.6 1.2 4 4.2" fill="none" stroke="#c4a078" strokeWidth="1.3" />
+    </Ring>
   );
 }

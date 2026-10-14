@@ -10,7 +10,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 2000);
+    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 3000);
     return () => window.clearTimeout(timer.current);
   }, []);
 
@@ -33,7 +33,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
         </span>
         <span className="splash-name" aria-hidden="true">
           {WORD.split("").map((letter, index) => (
-            <span key={letter + index} style={{ animationDelay: `${1.02 + index * 0.04}s` }}>
+            <span key={letter + index} style={{ animationDelay: `${1.92 + index * 0.032}s` }}>
               {letter}
             </span>
           ))}
@@ -43,42 +43,96 @@ export function Splash({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** Outer ring first. Even steps turn clockwise, odd steps the other way. All land together at the wink. */
+const SPIN = [
+  { delay: 0, dur: 2.05, ease: "cubic-bezier(0.16, 0.7, 0.2, 1)" },
+  { delay: 0.1, dur: 1.95, ease: "cubic-bezier(0.45, 0.02, 0.15, 1)" },
+  { delay: 0.22, dur: 1.83, ease: "cubic-bezier(0.25, 0.85, 0.35, 1)" },
+  { delay: 0.06, dur: 1.99, ease: "cubic-bezier(0.55, 0.08, 0.25, 1)" },
+  { delay: 0.3, dur: 1.75, ease: "cubic-bezier(0.4, 0, 0.2, 1)" },
+  { delay: 0.14, dur: 1.91, ease: "cubic-bezier(0.2, 0.9, 0.3, 1)" },
+  { delay: 0.38, dur: 1.67, ease: "cubic-bezier(0.6, 0.05, 0.25, 1)" },
+];
+
 function Blueprint() {
   const cx = 180;
   const cy = 300;
   const rings = [26, 46, 68, 92, 118, 146, 176];
-  const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
+  const outerTicks = Array.from({ length: 72 }, (_, i) => i * 5);
   return (
     <svg className="splash-map" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <g className="splash-rings" fill="none" stroke="#e6d3b4">
         <circle cx={cx} cy={cy} r="18" fill="#0c0806" stroke="none" opacity="0.55" />
         <path d={`M${cx} ${cy - 168} V${cy + 168} M${cx - 168} ${cy} H${cx + 168}`} strokeWidth="0.4" opacity="0.28" />
-        {rings.map((r, index) => (
-          <circle
-            key={r}
-            className="splash-ring"
-            cx={cx}
-            cy={cy}
-            r={r}
-            stroke={index % 2 === 0 ? "#f3e6cc" : "#c4a078"}
-            strokeWidth={index % 2 === 0 ? 1.35 : 0.8}
-            style={{ animationDelay: `${0.04 + index * 0.08}s` }}
-          />
-        ))}
-        {ticks.map((deg) => {
-          const long = deg % 30 === 0;
-          const inner = long ? 164 : 170;
-          const [x1, y1] = onRing(cx, cy, inner, inner, deg);
-          const [x2, y2] = onRing(cx, cy, 178, 178, deg);
-          return <path key={deg} className="splash-mark" d={`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`} strokeWidth={long ? 1.05 : 0.55} style={{ animationDelay: "0.52s" }} />;
+        {rings.map((r, index) => {
+          const fromOut = rings.length - 1 - index;
+          const spin = SPIN[fromOut];
+          const clockwise = fromOut % 2 === 0;
+          return (
+            <g
+              key={r}
+              className={clockwise ? "splash-spin splash-spin-cw" : "splash-spin splash-spin-ccw"}
+              style={{
+                animationDuration: `${spin.dur}s`,
+                animationDelay: `${spin.delay}s`,
+                animationTimingFunction: spin.ease,
+              }}
+            >
+              <circle
+                className="splash-ring"
+                cx={cx}
+                cy={cy}
+                r={r}
+                stroke={index % 2 === 0 ? "#f3e6cc" : "#c4a078"}
+                strokeWidth={index % 2 === 0 ? 1.35 : 0.8}
+                style={{ animationDelay: `${0.04 + index * 0.08}s` }}
+              />
+              <path
+                className="splash-mark"
+                d={arcPath(cx, cy, r, (index * 53) % 360, 46)}
+                stroke="#f6efe2"
+                strokeWidth="1.7"
+                style={{ animationDelay: `${0.08 + index * 0.07}s` }}
+              />
+              {r === 176
+                ? outerTicks.map((deg) => {
+                    const long = deg % 30 === 0;
+                    const inner = long ? 164 : 170;
+                    return (
+                      <path
+                        key={deg}
+                        className="splash-mark"
+                        d={spoke(cx, cy, inner, 178, deg)}
+                        strokeWidth={long ? 1.05 : 0.55}
+                        style={{ animationDelay: "0.52s" }}
+                      />
+                    );
+                  })
+                : null}
+              {[46, 92, 146].includes(r)
+                ? [32, 148, 212, 328].map((deg) => (
+                    <path
+                      key={deg}
+                      className="splash-mark"
+                      d={spoke(cx, cy, r - 6, r + 5, deg)}
+                      strokeWidth="0.95"
+                      style={{ animationDelay: `${0.16 + index * 0.08}s` }}
+                    />
+                  ))
+                : [26, 68, 118].includes(r)
+                  ? [18, 108, 198, 288].map((deg) => (
+                      <path
+                        key={deg}
+                        className="splash-mark"
+                        d={spoke(cx, cy, r - 4, r + 4, deg)}
+                        strokeWidth="0.7"
+                        style={{ animationDelay: `${0.12 + index * 0.08}s` }}
+                      />
+                    ))
+                  : null}
+            </g>
+          );
         })}
-        {[46, 92, 146].map((r, index) =>
-          [32, 148, 212, 328].map((deg) => {
-            const [x1, y1] = onRing(cx, cy, r - 6, r - 6, deg);
-            const [x2, y2] = onRing(cx, cy, r + 5, r + 5, deg);
-            return <path key={`${r}-${deg}`} className="splash-mark" d={`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`} strokeWidth="0.95" style={{ animationDelay: `${0.16 + index * 0.1}s` }} />;
-          }),
-        )}
         <Compass x={cx} y={cy - 196} />
       </g>
     </svg>
@@ -119,6 +173,18 @@ function ChessTile() {
       <path d={`M${at(0, 0).join(" ")} L${at(4, 0).join(" ")} L${at(4, 4).join(" ")} L${at(0, 4).join(" ")} Z`} fill="none" stroke="#c4a078" strokeWidth="1.15" />
     </svg>
   );
+}
+
+function spoke(cx: number, cy: number, inner: number, outer: number, deg: number) {
+  const [x1, y1] = onRing(cx, cy, inner, inner, deg);
+  const [x2, y2] = onRing(cx, cy, outer, outer, deg);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+
+function arcPath(cx: number, cy: number, r: number, start: number, sweep: number) {
+  const [x1, y1] = onRing(cx, cy, r, r, start);
+  const [x2, y2] = onRing(cx, cy, r, r, start + sweep);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
 }
 
 function onRing(cx: number, cy: number, rx: number, ry: number, deg: number): [number, number] {

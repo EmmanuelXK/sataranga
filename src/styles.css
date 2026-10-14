@@ -1720,55 +1720,164 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   padding: 0;
   border: 0;
   width: 100%;
+  flex: none;
   appearance: none;
   font: inherit;
   color: #f6efe2;
   display: grid;
   place-items: center;
   cursor: pointer;
-  background-color: #1c1410;
-  background-image:
-    radial-gradient(90% 36% at 50% -6%, rgba(140, 96, 52, 0.28), transparent 52%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cpath d='M0 28h56M28 0v56M8 8l40 40M48 8L8 48' fill='none' stroke='%23c4a078' stroke-width='.7' opacity='.55'/%3E%3C/svg%3E"),
-    linear-gradient(180deg, #3a2a20 0%, #1c1410 46%, #120e0c 100%);
-  animation: splash-leave 0.45s ease 1.3s forwards;
+  overflow: hidden;
+  background: #1c1410;
+  animation: splash-leave 0.48s ease 1.42s forwards;
 }
 .splash:focus-visible { outline: 2px solid #c4a078; outline-offset: -6px; }
-.splash-stage { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.splash-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.splash-rings {
+  transform-origin: 180px 320px;
+  animation: map-breathe 1.9s ease-out both;
+}
+.splash-ring {
+  stroke-opacity: 0.12;
+  animation: ring-wake 0.42s ease-out forwards;
+}
+.splash-mark {
+  stroke-opacity: 0;
+  animation: mark-wake 0.35s ease-out forwards;
+}
+.splash-corners { opacity: 0.55; }
+.splash-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 36%, rgba(12, 8, 6, 0.42) 72%, rgba(8, 5, 4, 0.86) 100%),
+    linear-gradient(180deg, rgba(42, 30, 22, 0.35), rgba(18, 12, 10, 0.2) 40%, rgba(12, 8, 6, 0.72));
+}
+.splash-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: stage-through 0.42s ease-in 1.42s forwards;
+}
 .splash-bird {
-  width: min(52vw, 210px);
+  width: 52vw;
+  max-width: 520px;
   height: auto;
   overflow: visible;
-  animation: bird-pop 0.6s cubic-bezier(0.2, 1.35, 0.36, 1) both;
+  transform-origin: 50% 60%;
+  animation: bird-pop 0.64s cubic-bezier(0.18, 0.85, 0.28, 1.25) 0.06s both;
 }
 .splash-shadow { fill: rgba(0, 0, 0, 0.35); }
+.splash-tail,
+.splash-wing {
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+.splash-tail { animation: feather-ruffle 0.42s ease-in-out 0.72s both; }
+.splash-wing { animation: feather-ruffle 0.38s ease-in-out 0.84s both; }
 .splash-lid {
   transform-box: fill-box;
   transform-origin: center top;
   transform: scaleY(0);
-  animation: bird-wink 0.42s ease 0.78s both;
+  animation: bird-wink 0.38s ease 0.98s both;
+}
+.splash-spark {
+  fill: #f6efe2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spark-pop 0.38s ease-out 1.08s both;
 }
 .splash-name {
+  display: flex;
+  gap: 0.14em;
   font-family: "Newsreader", ui-serif, Georgia, serif;
-  letter-spacing: 0.22em;
-  font-size: 0.92rem;
+  letter-spacing: 0.18em;
+  font-size: 1.05rem;
   color: #f6efe2;
 }
+.splash-name span {
+  display: inline-block;
+  opacity: 0;
+  animation: letter-bok 0.32s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+@keyframes map-breathe {
+  0% { opacity: 0; transform: scale(0.9) rotate(-5deg); }
+  32% { opacity: 1; }
+  100% { opacity: 0.92; transform: scale(1.04) rotate(3deg); }
+}
+@keyframes ring-wake {
+  0% { stroke-opacity: 0.04; }
+  55% { stroke-opacity: 0.95; }
+  100% { stroke-opacity: 0.72; }
+}
+@keyframes mark-wake {
+  to { stroke-opacity: 0.7; }
+}
 @keyframes bird-pop {
-  0% { transform: translateY(16px) scale(0.2); opacity: 0; }
-  70% { transform: translateY(0) scale(1.06); opacity: 1; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+  0% { transform: scale(0.12, 0.12); opacity: 0; }
+  48% { transform: scale(1.16, 0.82); opacity: 1; }
+  68% { transform: scale(0.92, 1.1); }
+  84% { transform: scale(1.05, 0.96); }
+  100% { transform: scale(1, 1); opacity: 1; }
+}
+@keyframes feather-ruffle {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(-8deg) scale(1.05, 0.96); }
+  100% { transform: rotate(0deg) scale(1); }
 }
 @keyframes bird-wink {
   0%, 100% { transform: scaleY(0); }
-  45%, 62% { transform: scaleY(1); }
+  42%, 68% { transform: scaleY(1); }
+}
+@keyframes spark-pop {
+  0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  45% { opacity: 1; transform: scale(1.2) rotate(18deg); }
+  100% { opacity: 0; transform: scale(0.5) rotate(36deg); }
+}
+@keyframes letter-bok {
+  0% { opacity: 0; transform: translateY(10px) scale(0.7, 1.2); }
+  62% { opacity: 1; transform: translateY(-4px) scale(1.08, 0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes stage-through {
+  to { transform: scale(1.42); opacity: 0; }
 }
 @keyframes splash-leave {
   to { opacity: 0; visibility: hidden; }
 }
+@keyframes splash-fade {
+  to { opacity: 0; visibility: hidden; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .splash, .splash-bird, .splash-lid { animation: none; }
+  .splash { animation: splash-fade 0.6s ease 0.2s forwards; }
+  .splash-rings,
+  .splash-ring,
+  .splash-mark,
+  .splash-stage,
+  .splash-bird,
+  .splash-tail,
+  .splash-wing,
+  .splash-lid,
+  .splash-spark,
+  .splash-name span { animation: none; }
+  .splash-rings { opacity: 1; transform: none; }
+  .splash-ring { stroke-opacity: 0.4; }
+  .splash-mark { stroke-opacity: 0.55; }
   .splash-lid { transform: scaleY(0); }
+  .splash-spark { opacity: 0; }
+  .splash-name span { opacity: 1; transform: none; }
 }
 
 body:has(.hall),

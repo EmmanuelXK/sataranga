@@ -10,7 +10,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 3000);
+    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 2000);
     return () => window.clearTimeout(timer.current);
   }, []);
 
@@ -33,7 +33,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
         </span>
         <span className="splash-name" aria-hidden="true">
           {WORD.split("").map((letter, index) => (
-            <span key={letter + index} style={{ animationDelay: `${1.92 + index * 0.032}s` }}>
+            <span key={letter + index} style={{ animationDelay: `${0.72 + index * 0.02}s` }}>
               {letter}
             </span>
           ))}
@@ -45,13 +45,13 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
 /** Outer ring first. Even steps turn clockwise, odd steps the other way. All land together at the wink. */
 const SPIN = [
-  { delay: 0, dur: 2.05, ease: "cubic-bezier(0.16, 0.7, 0.2, 1)" },
-  { delay: 0.1, dur: 1.95, ease: "cubic-bezier(0.45, 0.02, 0.15, 1)" },
-  { delay: 0.22, dur: 1.83, ease: "cubic-bezier(0.25, 0.85, 0.35, 1)" },
-  { delay: 0.06, dur: 1.99, ease: "cubic-bezier(0.55, 0.08, 0.25, 1)" },
-  { delay: 0.3, dur: 1.75, ease: "cubic-bezier(0.4, 0, 0.2, 1)" },
-  { delay: 0.14, dur: 1.91, ease: "cubic-bezier(0.2, 0.9, 0.3, 1)" },
-  { delay: 0.38, dur: 1.67, ease: "cubic-bezier(0.6, 0.05, 0.25, 1)" },
+  { delay: 0, dur: 1.12, ease: "cubic-bezier(0.05, 0.82, 0.18, 1)" },
+  { delay: 0.04, dur: 1.08, ease: "cubic-bezier(0.12, 0.9, 0.22, 1)" },
+  { delay: 0.08, dur: 1.04, ease: "cubic-bezier(0.08, 0.75, 0.16, 1)" },
+  { delay: 0.02, dur: 1.1, ease: "cubic-bezier(0.16, 0.88, 0.2, 1)" },
+  { delay: 0.1, dur: 1.02, ease: "cubic-bezier(0.1, 0.7, 0.14, 1)" },
+  { delay: 0.06, dur: 1.06, ease: "cubic-bezier(0.18, 0.92, 0.24, 1)" },
+  { delay: 0.12, dur: 1, ease: "cubic-bezier(0.2, 0.78, 0.15, 1)" },
 ];
 
 function Blueprint() {

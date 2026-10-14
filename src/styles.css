@@ -1733,7 +1733,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
     radial-gradient(50% 36% at 62% 74%, rgba(48, 30, 20, 0.35), transparent 70%),
     radial-gradient(28% 18% at 30% 68%, rgba(110, 74, 46, 0.12), transparent 70%),
     linear-gradient(165deg, #3a281c 0%, #241810 34%, #1a120e 62%, #100c0a 100%);
-  animation: splash-leave 0.48s ease 2.48s forwards;
+  animation: splash-leave 0.42s ease 1.16s forwards;
 }
 .splash:focus-visible { outline: 2px solid #c4a078; outline-offset: -6px; }
 .splash-map {
@@ -1745,7 +1745,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   pointer-events: none;
 }
 .splash-rings {
-  animation: map-wake 0.7s ease-out both;
+  animation: map-wake 0.35s ease-out both;
 }
 .splash-spin {
   transform-box: view-box;
@@ -1777,7 +1777,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  animation: stage-through 0.48s ease-in 2.48s forwards;
+  animation: stage-through 0.42s ease-in 1.16s forwards;
 }
 .splash-hero {
   position: absolute;
@@ -1788,7 +1788,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   align-items: center;
   width: min(53vw, 440px);
   transform-origin: 50% 78%;
-  animation: hero-rise 0.78s cubic-bezier(0.2, 0.85, 0.28, 1.15) 0.35s both;
+  animation: hero-rise 0.52s cubic-bezier(0.2, 0.85, 0.28, 1.15) 0.06s both;
 }
 .splash-bird {
   width: 100%;
@@ -1808,20 +1808,20 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   transform-box: fill-box;
   transform-origin: 20% 70%;
 }
-.splash-tail { animation: feather-ruffle 0.42s ease-in-out 1.42s both; }
-.splash-wing { animation: feather-ruffle 0.36s ease-in-out 1.55s both; }
+.splash-tail { animation: feather-ruffle 0.28s ease-in-out 0.55s both; }
+.splash-wing { animation: feather-ruffle 0.26s ease-in-out 0.64s both; }
 .splash-lid {
   transform-box: fill-box;
   transform-origin: center top;
   transform: scaleY(0);
-  animation: bird-wink 0.45s ease 1.85s both;
+  animation: bird-wink 0.36s ease 0.82s both;
 }
 .splash-spark {
   fill: #f6efe2;
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
-  animation: spark-pop 0.38s ease-out 2.05s both;
+  animation: spark-pop 0.28s ease-out 0.98s both;
 }
 .splash-name {
   position: absolute;
@@ -1841,7 +1841,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
 .splash-name span {
   display: inline-block;
   opacity: 0;
-  animation: letter-settle 0.36s ease-out both;
+  animation: letter-settle 0.26s ease-out both;
 }
 @keyframes map-wake {
   from { opacity: 0; }

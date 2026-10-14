@@ -10,7 +10,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 1900);
+    timer.current = window.setTimeout(() => done.current(), reduced ? 800 : 2000);
     return () => window.clearTimeout(timer.current);
   }, []);
 
@@ -27,10 +27,13 @@ export function Splash({ onDone }: { onDone: () => void }) {
       <Blueprint />
       <span className="splash-vignette" aria-hidden="true" />
       <span className="splash-stage">
-        <Junglefowl />
+        <span className="splash-hero">
+          <Junglefowl />
+          <ChessTile />
+        </span>
         <span className="splash-name" aria-hidden="true">
           {WORD.split("").map((letter, index) => (
-            <span key={letter + index} style={{ animationDelay: `${0.42 + index * 0.045}s` }}>
+            <span key={letter + index} style={{ animationDelay: `${1.02 + index * 0.04}s` }}>
               {letter}
             </span>
           ))}
@@ -42,42 +45,78 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
 function Blueprint() {
   const cx = 180;
-  const cy = 320;
-  const rings = [22, 42, 64, 88, 114, 142, 172, 204];
+  const cy = 300;
+  const rings = [26, 46, 68, 92, 118, 146, 176];
+  const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   return (
     <svg className="splash-map" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g className="splash-corners" fill="none" stroke="#c4a078" strokeWidth="0.8">
-        <Corner />
-        <Corner transform="translate(360 0) scale(-1 1)" />
-        <Corner transform="translate(0 640) scale(1 -1)" />
-        <Corner transform="translate(360 640) scale(-1 -1)" />
-      </g>
       <g className="splash-rings" fill="none" stroke="#e6d3b4">
-        <path d={`M${cx} 48 V592 M16 ${cy} H344`} strokeWidth="0.35" opacity="0.45" />
+        <circle cx={cx} cy={cy} r="18" fill="#0c0806" stroke="none" opacity="0.55" />
+        <path d={`M${cx} ${cy - 168} V${cy + 168} M${cx - 168} ${cy} H${cx + 168}`} strokeWidth="0.4" opacity="0.28" />
         {rings.map((r, index) => (
-          <ellipse
+          <circle
             key={r}
             className="splash-ring"
             cx={cx}
             cy={cy}
-            rx={r * 1.22}
-            ry={r * 0.7}
-            strokeWidth={index % 3 === 0 ? 1.35 : 0.85}
-            style={{ animationDelay: `${0.05 + index * 0.07}s` }}
+            r={r}
+            stroke={index % 2 === 0 ? "#f3e6cc" : "#c4a078"}
+            strokeWidth={index % 2 === 0 ? 1.35 : 0.8}
+            style={{ animationDelay: `${0.04 + index * 0.08}s` }}
           />
         ))}
-        {rings.map((r, index) =>
-          index % 2 === 0
-            ? null
-            : [18, 78, 150, 210, 300].map((deg) => {
-                const [x, y] = onRing(cx, cy, r * 1.22, r * 0.7, deg);
-                return <path key={`${r}-${deg}`} className="splash-mark" d={`M${x} ${y} l0 -7 l2.4 0 l0 -3`} strokeWidth="0.6" style={{ animationDelay: `${0.2 + index * 0.07}s` }} />;
-              }),
+        {ticks.map((deg) => {
+          const long = deg % 30 === 0;
+          const inner = long ? 164 : 170;
+          const [x1, y1] = onRing(cx, cy, inner, inner, deg);
+          const [x2, y2] = onRing(cx, cy, 178, 178, deg);
+          return <path key={deg} className="splash-mark" d={`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`} strokeWidth={long ? 1.05 : 0.55} style={{ animationDelay: "0.52s" }} />;
+        })}
+        {[46, 92, 146].map((r, index) =>
+          [32, 148, 212, 328].map((deg) => {
+            const [x1, y1] = onRing(cx, cy, r - 6, r - 6, deg);
+            const [x2, y2] = onRing(cx, cy, r + 5, r + 5, deg);
+            return <path key={`${r}-${deg}`} className="splash-mark" d={`M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`} strokeWidth="0.95" style={{ animationDelay: `${0.16 + index * 0.1}s` }} />;
+          }),
         )}
-        <path className="splash-mark" d="M48 320 l8 -6 v12 z M312 320 l-8 -6 v12 z M180 236 l6 8 h-12 z" strokeWidth="0.6" style={{ animationDelay: "0.55s" }} />
-        <Compass x={cx} y={86} />
-        <Compass x={cx} y={560} small />
+        <Compass x={cx} y={cy - 196} />
       </g>
+    </svg>
+  );
+}
+
+function ChessTile() {
+  const bl = [6, 14];
+  const du = [16.2, -1.1];
+  const dv = [2.4, 5.6];
+  const at = (file: number, rank: number) => [bl[0] + file * du[0] + rank * dv[0], bl[1] + file * du[1] + rank * dv[1]];
+  const cells = [];
+  for (let rank = 0; rank < 4; rank++) {
+    for (let file = 0; file < 4; file++) {
+      const [x0, y0] = at(file, rank);
+      const [x1, y1] = at(file + 1, rank);
+      const [x2, y2] = at(file + 1, rank + 1);
+      const [x3, y3] = at(file, rank + 1);
+      cells.push(
+        <path
+          key={`${rank}-${file}`}
+          d={`M${x0} ${y0} L${x1} ${y1} L${x2} ${y2} L${x3} ${y3} Z`}
+          fill={(rank + file) % 2 === 0 ? "#f3e6cc" : "#6b4630"}
+        />,
+      );
+    }
+  }
+  const [flX, flY] = at(0, 4);
+  const [frX, frY] = at(4, 4);
+  const [brX, brY] = at(4, 0);
+  const drop = 8;
+  return (
+    <svg className="splash-tile" viewBox="0 0 92 62" aria-hidden="true">
+      <ellipse cx="46" cy="56" rx="34" ry="4.5" fill="#000" opacity="0.4" />
+      <path d={`M${flX} ${flY} L${frX} ${frY} L${frX} ${frY + drop} L${flX} ${flY + drop} Z`} fill="#3a291c" />
+      <path d={`M${brX} ${brY} L${frX} ${frY} L${frX} ${frY + drop} L${brX} ${brY + drop} Z`} fill="#241810" />
+      <g>{cells}</g>
+      <path d={`M${at(0, 0).join(" ")} L${at(4, 0).join(" ")} L${at(4, 4).join(" ")} L${at(0, 4).join(" ")} Z`} fill="none" stroke="#c4a078" strokeWidth="1.15" />
     </svg>
   );
 }
@@ -90,20 +129,10 @@ function onRing(cx: number, cy: number, rx: number, ry: number, deg: number): [n
 function Compass({ x, y, small }: { x: number; y: number; small?: boolean }) {
   const s = small ? 0.62 : 1;
   return (
-    <g className="splash-mark" transform={`translate(${x} ${y}) scale(${s})`} strokeWidth="0.7" style={{ animationDelay: small ? "0.7s" : "0.35s" }}>
+    <g className="splash-mark" transform={`translate(${x} ${y}) scale(${s})`} strokeWidth="1.15" style={{ animationDelay: small ? "0.7s" : "0.35s" }}>
       <circle r="11" />
       <path d="M0 -16 L2.4 0 L0 16 L-2.4 0 Z M-16 0 L0 2.4 L16 0 L0 -2.4 Z" />
       <circle r="1.6" fill="#e6d3b4" stroke="none" />
-    </g>
-  );
-}
-
-function Corner({ transform }: { transform?: string }) {
-  return (
-    <g transform={transform}>
-      <path d="M18 18 h34 M18 18 v34" />
-      <path d="M18 18 c10 12 22 16 36 14 M18 18 c12 10 16 22 14 36" />
-      <path d="M30 18 c4 6 8 8 14 8 M18 30 c6 4 8 8 8 14" />
     </g>
   );
 }

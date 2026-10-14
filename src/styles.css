@@ -1723,13 +1723,17 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   flex: none;
   appearance: none;
   font: inherit;
-  color: #f6efe2;
-  display: grid;
-  place-items: center;
+  color: #f3e6cc;
   cursor: pointer;
   overflow: hidden;
-  background: #1c1410;
-  animation: splash-leave 0.48s ease 1.42s forwards;
+  background-color: #140e0b;
+  background-image:
+    radial-gradient(42% 28% at 18% 22%, rgba(92, 62, 40, 0.28), transparent 70%),
+    radial-gradient(36% 24% at 78% 16%, rgba(70, 46, 30, 0.22), transparent 72%),
+    radial-gradient(50% 36% at 62% 74%, rgba(48, 30, 20, 0.35), transparent 70%),
+    radial-gradient(28% 18% at 30% 68%, rgba(110, 74, 46, 0.12), transparent 70%),
+    linear-gradient(165deg, #3a281c 0%, #241810 34%, #1a120e 62%, #100c0a 100%);
+  animation: splash-leave 0.45s ease 1.55s forwards;
 }
 .splash:focus-visible { outline: 2px solid #c4a078; outline-offset: -6px; }
 .splash-map {
@@ -1737,122 +1741,140 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.72;
+  opacity: 0.94;
   pointer-events: none;
 }
 .splash-rings {
-  transform-origin: 180px 320px;
-  animation: map-breathe 1.9s ease-out both;
+  transform-origin: 180px 300px;
+  animation: map-wake 0.9s ease-out both;
 }
 .splash-ring {
-  stroke-opacity: 0.12;
-  animation: ring-wake 0.42s ease-out forwards;
+  stroke-opacity: 0;
+  animation: ring-wake 0.46s ease-out forwards;
 }
 .splash-mark {
   stroke-opacity: 0;
-  animation: mark-wake 0.35s ease-out forwards;
+  animation: mark-wake 0.4s ease-out forwards;
 }
-.splash-corners { opacity: 0.55; }
 .splash-vignette {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at center, transparent 36%, rgba(12, 8, 6, 0.42) 72%, rgba(8, 5, 4, 0.86) 100%),
-    linear-gradient(180deg, rgba(42, 30, 22, 0.35), rgba(18, 12, 10, 0.2) 40%, rgba(12, 8, 6, 0.72));
+    radial-gradient(ellipse at 50% 46%, transparent 46%, rgba(12, 8, 6, 0.22) 72%, rgba(8, 5, 4, 0.78) 100%);
 }
 .splash-stage {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
+  animation: stage-through 0.45s ease-in 1.55s forwards;
+}
+.splash-hero {
+  position: absolute;
+  left: 50%;
+  top: 46.8%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  animation: stage-through 0.42s ease-in 1.42s forwards;
+  width: min(53vw, 440px);
+  transform-origin: 50% 78%;
+  animation: hero-rise 0.78s cubic-bezier(0.2, 0.85, 0.28, 1.15) 0.16s both;
 }
 .splash-bird {
-  width: 52vw;
-  max-width: 520px;
+  width: 100%;
   height: auto;
+  margin-bottom: -17%;
   overflow: visible;
-  transform-origin: 50% 60%;
-  animation: bird-pop 0.64s cubic-bezier(0.18, 0.85, 0.28, 1.25) 0.06s both;
 }
-.splash-shadow { fill: rgba(0, 0, 0, 0.35); }
+.splash-tile {
+  width: 62%;
+  height: auto;
+  transform: translateX(-10%);
+  overflow: visible;
+}
+.splash-shadow { fill: transparent; }
 .splash-tail,
 .splash-wing {
   transform-box: fill-box;
-  transform-origin: left center;
+  transform-origin: 20% 70%;
 }
-.splash-tail { animation: feather-ruffle 0.42s ease-in-out 0.72s both; }
-.splash-wing { animation: feather-ruffle 0.38s ease-in-out 0.84s both; }
+.splash-tail { animation: feather-ruffle 0.42s ease-in-out 0.92s both; }
+.splash-wing { animation: feather-ruffle 0.36s ease-in-out 1.02s both; }
 .splash-lid {
   transform-box: fill-box;
   transform-origin: center top;
   transform: scaleY(0);
-  animation: bird-wink 0.38s ease 0.98s both;
+  animation: bird-wink 0.4s ease 1.12s both;
 }
 .splash-spark {
   fill: #f6efe2;
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
-  animation: spark-pop 0.38s ease-out 1.08s both;
+  animation: spark-pop 0.38s ease-out 1.24s both;
 }
 .splash-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12.5%;
   display: flex;
-  gap: 0.14em;
+  justify-content: center;
+  gap: 0;
+  padding-left: 0.46em;
   font-family: "Newsreader", ui-serif, Georgia, serif;
-  letter-spacing: 0.18em;
-  font-size: 1.05rem;
-  color: #f6efe2;
+  font-weight: 500;
+  letter-spacing: 0.46em;
+  font-size: clamp(1.25rem, 5.2vw, 1.8rem);
+  color: #f3e6cc;
 }
 .splash-name span {
   display: inline-block;
   opacity: 0;
-  animation: letter-bok 0.32s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+  animation: letter-settle 0.36s ease-out both;
 }
-@keyframes map-breathe {
-  0% { opacity: 0; transform: scale(0.9) rotate(-5deg); }
-  32% { opacity: 1; }
-  100% { opacity: 0.92; transform: scale(1.04) rotate(3deg); }
+@keyframes map-wake {
+  0% { opacity: 0; transform: scale(0.62); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
 }
 @keyframes ring-wake {
-  0% { stroke-opacity: 0.04; }
-  55% { stroke-opacity: 0.95; }
-  100% { stroke-opacity: 0.72; }
+  0% { stroke-opacity: 0; }
+  60% { stroke-opacity: 0.95; }
+  100% { stroke-opacity: 0.82; }
 }
 @keyframes mark-wake {
-  to { stroke-opacity: 0.7; }
+  to { stroke-opacity: 0.72; }
 }
-@keyframes bird-pop {
-  0% { transform: scale(0.12, 0.12); opacity: 0; }
-  48% { transform: scale(1.16, 0.82); opacity: 1; }
-  68% { transform: scale(0.92, 1.1); }
-  84% { transform: scale(1.05, 0.96); }
-  100% { transform: scale(1, 1); opacity: 1; }
+@keyframes hero-rise {
+  0% { transform: translate(-50%, -42%) scale(0.08, 0.08); opacity: 0; }
+  46% { transform: translate(-50%, -64%) scale(1.14, 0.84); opacity: 1; }
+  66% { transform: translate(-50%, -60%) scale(0.94, 1.08); }
+  82% { transform: translate(-50%, -62%) scale(1.04, 0.97); }
+  100% { transform: translate(-50%, -62%) scale(1, 1); opacity: 1; }
 }
 @keyframes feather-ruffle {
   0% { transform: rotate(0deg); }
-  40% { transform: rotate(-8deg) scale(1.05, 0.96); }
+  38% { transform: rotate(-9deg) scale(1.06, 0.94); }
   100% { transform: rotate(0deg) scale(1); }
 }
 @keyframes bird-wink {
   0%, 100% { transform: scaleY(0); }
-  42%, 68% { transform: scaleY(1); }
+  40%, 66% { transform: scaleY(1); }
 }
 @keyframes spark-pop {
   0% { opacity: 0; transform: scale(0.2) rotate(0deg); }
-  45% { opacity: 1; transform: scale(1.2) rotate(18deg); }
-  100% { opacity: 0; transform: scale(0.5) rotate(36deg); }
+  45% { opacity: 1; transform: scale(1.15) rotate(16deg); }
+  100% { opacity: 0; transform: scale(0.45) rotate(32deg); }
 }
-@keyframes letter-bok {
-  0% { opacity: 0; transform: translateY(10px) scale(0.7, 1.2); }
-  62% { opacity: 1; transform: translateY(-4px) scale(1.08, 0.92); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes letter-settle {
+  0% { opacity: 0; transform: translateY(12px); }
+  72% { opacity: 1; transform: translateY(-2px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes stage-through {
-  to { transform: scale(1.42); opacity: 0; }
+  to { transform: scale(1.48); opacity: 0; }
 }
 @keyframes splash-leave {
   to { opacity: 0; visibility: hidden; }
@@ -1866,6 +1888,7 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   .splash-ring,
   .splash-mark,
   .splash-stage,
+  .splash-hero,
   .splash-bird,
   .splash-tail,
   .splash-wing,
@@ -1873,8 +1896,9 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
   .splash-spark,
   .splash-name span { animation: none; }
   .splash-rings { opacity: 1; transform: none; }
-  .splash-ring { stroke-opacity: 0.4; }
-  .splash-mark { stroke-opacity: 0.55; }
+  .splash-ring { stroke-opacity: 0.72; }
+  .splash-mark { stroke-opacity: 0.62; }
+  .splash-hero { transform: translate(-50%, -62%); opacity: 1; }
   .splash-lid { transform: scaleY(0); }
   .splash-spark { opacity: 0; }
   .splash-name span { opacity: 1; transform: none; }

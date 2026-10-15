@@ -445,6 +445,16 @@ export function viewCell(view: Army, square: number): { row: number; col: number
   return { row: f, col: r };
 }
 
+/**
+ * Horse and elephant art faces right. Mirror a Gaja or Ashva on the right half
+ * of the current view so it faces left, toward the centre. Raja, Yathra, and
+ * Hewa stay as drawn. The square, not the starting camp, decides the flip.
+ */
+export function mirrorTowardCenter(type: CType, square: number, view: Army): boolean {
+  if (type !== "G" && type !== "A") return false;
+  return viewCell(view, square).col >= 4;
+}
+
 export function leader(state: CState): Army {
   return TURN.slice().sort((a, b) => state.scores[b] - state.scores[a])[0];
 }

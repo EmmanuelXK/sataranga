@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyMove, movesFor, startState, type CType } from "./chaturaji.ts";
+import { applyMove, mirrorTowardCenter, movesFor, startState, type CType } from "./chaturaji.ts";
 
 test("thirty-two pieces and four rajas", () => {
   const state = startState(true);
@@ -10,6 +10,27 @@ test("thirty-two pieces and four rajas", () => {
     assert.equal(pieces.filter((p) => p!.army === army && p!.type === "K").length, 1);
     assert.equal(pieces.filter((p) => p!.army === army && p!.type === "Y").length, 1);
   }
+});
+
+test("gaja and ashva art faces the centre of the current view", () => {
+  const sq = (file: number, rank: number) => rank * 8 + file;
+  const state = startState(false);
+  const at = (file: number, rank: number) => state.board[sq(file, rank)]!;
+  assert.equal(at(1, 0).type, "A");
+  assert.equal(at(2, 0).type, "G");
+  assert.equal(mirrorTowardCenter("A", sq(1, 0), "red"), false);
+  assert.equal(mirrorTowardCenter("G", sq(2, 0), "red"), false);
+  assert.equal(mirrorTowardCenter("A", sq(0, 6), "red"), false);
+  assert.equal(mirrorTowardCenter("G", sq(0, 5), "red"), false);
+  assert.equal(mirrorTowardCenter("G", sq(5, 7), "red"), true);
+  assert.equal(mirrorTowardCenter("A", sq(6, 7), "red"), true);
+  assert.equal(mirrorTowardCenter("A", sq(7, 1), "red"), true);
+  assert.equal(mirrorTowardCenter("G", sq(7, 2), "red"), true);
+  assert.equal(mirrorTowardCenter("A", sq(0, 6), "green"), false);
+  assert.equal(mirrorTowardCenter("K", sq(3, 0), "red"), false);
+  assert.equal(mirrorTowardCenter("Y", sq(0, 0), "red"), false);
+  assert.equal(mirrorTowardCenter("P", sq(1, 1), "red"), false);
+  assert.equal(mirrorTowardCenter("A", sq(5, 0), "red"), true);
 });
 
 test("gaja jumps two squares diagonally and ashva jumps in an L", () => {

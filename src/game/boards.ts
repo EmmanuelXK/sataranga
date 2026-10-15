@@ -29,3 +29,12 @@ export function writeBoard(id: BoardId) {
 export function boardTheme(id: BoardId): BoardTheme {
   return BOARDS.find((b) => b.id === id) ?? BOARDS[0];
 }
+
+/** Pointer position relative to the board box. Drag ghosts are positioned inside it. */
+export function pointInBoard(
+  clientX: number,
+  clientY: number,
+  rect: { left: number; top: number },
+): { x: number; y: number } {
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}

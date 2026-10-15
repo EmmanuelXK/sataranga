@@ -101,6 +101,77 @@ test("stalemate is a loss for the side that cannot move", () => {
   assert.deepEqual(end, { kind: "win", winner: "w", reason: "stalemate" });
 });
 
+test("Raja steps one square any way and cannot castle", () => {
+  const pos = empty();
+  put(pos, 4, { color: "w", type: "K" });
+  put(pos, 7, { color: "w", type: "R" });
+  put(pos, 60, { color: "b", type: "K" });
+  const king = legalMoves(pos).filter((m) => m.piece === "K");
+  assert.deepEqual(king.map((m) => coord(m.to)).sort(), ["d1", "d2", "e2", "f1", "f2"]);
+  assert.ok(!king.some((m) => coord(m.to) === "g1" || coord(m.to) === "c1"));
+});
+
+test("Mantri is one diagonal step and never orthogonal", () => {
+  const pos = empty();
+  put(pos, 3 + 3 * 8, { color: "w", type: "M" });
+  put(pos, 0, { color: "w", type: "K" });
+  put(pos, 63, { color: "b", type: "K" });
+  const mantri = legalMoves(pos).filter((m) => m.piece === "M");
+  assert.deepEqual(mantri.map((m) => coord(m.to)).sort(), ["c3", "c5", "e3", "e5"]);
+});
+
+test("Gaja leaps exactly two diagonals over a blocker", () => {
+  const pos = empty();
+  put(pos, 3 + 3 * 8, { color: "w", type: "G" });
+  put(pos, 4 + 4 * 8, { color: "b", type: "P" });
+  put(pos, 0, { color: "w", type: "K" });
+  put(pos, 63, { color: "b", type: "K" });
+  const gaja = legalMoves(pos).filter((m) => m.piece === "G");
+  assert.deepEqual(gaja.map((m) => coord(m.to)).sort(), ["b2", "b6", "f2", "f6"]);
+  assert.ok(!gaja.some((m) => coord(m.to) === "e5"));
+});
+
+test("Ashva jumps in an L and is not blocked", () => {
+  const pos = empty();
+  put(pos, 4 + 4 * 8, { color: "w", type: "A" });
+  put(pos, 4 + 5 * 8, { color: "b", type: "P" });
+  put(pos, 5 + 4 * 8, { color: "b", type: "P" });
+  put(pos, 0, { color: "w", type: "K" });
+  put(pos, 63, { color: "b", type: "K" });
+  const horse = legalMoves(pos).filter((m) => m.piece === "A");
+  assert.deepEqual(
+    horse.map((m) => coord(m.to)).sort(),
+    ["c4", "c6", "d3", "d7", "f3", "f7", "g4", "g6"],
+  );
+});
+
+test("Ratha slides on ranks and files and stops at a blocker", () => {
+  const pos = empty();
+  put(pos, 3 + 3 * 8, { color: "w", type: "R" });
+  put(pos, 5 + 3 * 8, { color: "b", type: "P" });
+  put(pos, 0, { color: "w", type: "K" });
+  put(pos, 63, { color: "b", type: "K" });
+  const rook = legalMoves(pos).filter((m) => m.piece === "R");
+  const dest = rook.map((m) => coord(m.to));
+  assert.ok(dest.includes("f4"));
+  assert.ok(!dest.includes("g4"));
+  assert.ok(dest.includes("d1") && dest.includes("d8"));
+  assert.ok(!dest.includes("e5") && !dest.includes("c5"));
+});
+
+test("Hewa steps one square forward, captures diagonally, and has no double step or en passant", () => {
+  const pos = empty();
+  put(pos, 8 + 3, { color: "w", type: "P" });
+  put(pos, 16 + 4, { color: "b", type: "P" });
+  put(pos, 16 + 3, { color: "b", type: "P" });
+  put(pos, 0, { color: "w", type: "K" });
+  put(pos, 63, { color: "b", type: "K" });
+  const pawns = legalMoves(pos).filter((m) => m.piece === "P" && m.color === "w");
+  assert.deepEqual(pawns.map((m) => coord(m.to)).sort(), ["e3"]);
+  assert.equal(pawns[0].captured, "P");
+  assert.ok(!pawns.some((m) => coord(m.to) === "d4" || coord(m.to) === "d3"));
+});
+
 test("notation and a short engine search stay legal", () => {
   const pos = startPosition();
   const moves = legalMoves(pos);

@@ -75,7 +75,19 @@ function schedule(c: AudioContext, kind: "move" | "capture" | "check" | "end"): 
   }
 }
 
+const SOUND_KEY = "sataranga-sound";
+
+export function soundEnabled(): boolean {
+  if (typeof localStorage === "undefined") return true;
+  return localStorage.getItem(SOUND_KEY) !== "0";
+}
+
+export function setSoundEnabled(on: boolean): void {
+  localStorage.setItem(SOUND_KEY, on ? "1" : "0");
+}
+
 export function playSound(kind: "move" | "capture" | "check" | "end"): void {
+  if (!soundEnabled()) return;
   const c = context();
   if (!c) return;
   if (c.state === "suspended") {

@@ -81,6 +81,19 @@ const STALL_MS = 10_000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const SIGNAL_RETRY_DELAYS_MS = [250, 750];
 
+/** SDP/ICE payloads sometimes come back as JSON text (or text twice). */
+export function decodeSignalPayload(payload: unknown): unknown {
+  let value = payload;
+  for (let i = 0; i < 2 && typeof value === "string"; i += 1) {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      break;
+    }
+  }
+  return value;
+}
+
 export function defaultIceServers(): RTCIceServer[] {
   const urls = (import.meta.env.VITE_STUN_URLS as string | undefined)
     ?.split(",")
@@ -204,8 +217,9 @@ export class P2PRoom {
     this.reconcileRoster(body.peers);
     const roster = new Set(body.peers.map((p) => p.id));
     for (const sig of body.signals) {
-      this.cursor = Math.max(this.cursor, sig.id);
-      await this.onSignal(sig.from, sig.kind, sig.payload, roster);
+      const id = Number(sig.id);
+      if (Number.isFinite(id)) this.cursor = Math.max(this.cursor, id);
+      await this.onSignal(sig.from, sig.kind, decodeSignalPayload(sig.payload), roster);
       if (this.closed) return;
     }
   }

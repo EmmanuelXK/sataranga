@@ -1,4 +1,6 @@
-import { authClient, authEnabled } from "./client";
+import { useEffect, useState } from "react";
+import { authEnabled } from "./client";
+import { getSupabase, supabaseConfigured, userFromSupabase } from "@/lib/supabase/client";
 
 /** Normalized user shape used across the app, auth on or off. */
 export type AppUser = {
@@ -35,11 +37,9 @@ export type CurrentUserState = {
 
 /**
  * Current user + loading state. Same behavior in live preview and when deployed:
- *   - Auth enabled -> the real signed-in user; `user` is `null` while
- *                            the session resolves (`isPending: true`) and when
- *                            signed out (`isPending: false`). Session comes from
- *                            Better Auth `useSession()` → `/api/auth/get-session`
- *                            (cookie when deployed; bearer in live preview).
+ *   - Auth enabled -> the Supabase user on the shared YUDO project; `user` is
+ *                            `null` while the session resolves (`isPending: true`)
+ *                            and when signed out (`isPending: false`).
  *   - Auth disabled (`VITE_AUTH_ENABLED=false`) -> `DEV_USER`, never pending.
  *
  * Protect a route by waiting out `isPending` before acting on `user` —
@@ -57,20 +57,39 @@ export type CurrentUserState = {
 export function useCurrentUserState(): CurrentUserState {
   if (!authEnabled) return { user: DEV_USER, isPending: false };
   // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
-  const { data, isPending } = authClient.useSession();
-  const user = data?.user;
-  return {
-    user: user
-      ? {
-          id: user.id,
-          displayName: user.name ?? null,
-          primaryEmail: user.email ?? null,
-          profileImageUrl: user.image ?? null,
-          isDevFallback: false,
-        }
-      : null,
-    isPending,
-  };
+  return useSupabaseUser();
+}
+
+function useSupabaseUser(): CurrentUserState {
+  const [state, setState] = useState<CurrentUserState>({ user: null, isPending: supabaseConfigured() });
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setState({ user: null, isPending: false });
+      return;
+    }
+    let live = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!live) return;
+      const mapped = userFromSupabase(data.session?.user);
+      setState({
+        user: mapped ? { ...mapped, isDevFallback: false } : null,
+        isPending: false,
+      });
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const mapped = userFromSupabase(session?.user);
+      setState({
+        user: mapped ? { ...mapped, isDevFallback: false } : null,
+        isPending: false,
+      });
+    });
+    return () => {
+      live = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+  return state;
 }
 
 /**

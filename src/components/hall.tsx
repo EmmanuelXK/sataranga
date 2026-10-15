@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { clsx } from "clsx";
 import { Board } from "@/components/Chaturanga";
+import { DailyPuzzle } from "@/components/puzzles";
 import { GameDesk } from "@/components/desk";
 import { ProfilePane } from "@/components/Yuddha";
 import { loadCareer, totals } from "@/game/career";
@@ -296,12 +297,7 @@ export function Hall({
         </>
       )}
 
-      {tab === "puzzles" && (
-        <section className="hall-panel" aria-labelledby="puzzles-title">
-          <h2 id="puzzles-title">Puzzles</h2>
-          <p>Puzzles are not in this build yet. Home is playing a live bot game you can watch, then start your own.</p>
-        </section>
-      )}
+      {tab === "puzzles" && <DailyPuzzle />}
 
       {tab === "insights" && <Insights profile={profile} live={live} signedIn={signedIn} recent={recent} />}
 

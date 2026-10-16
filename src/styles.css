@@ -2527,3 +2527,136 @@ body:has(.splash) {
   pointer-events: none;
 }
 
+.insight-block { gap: 10px; }
+.insight-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.insight-head h3 {
+  margin: 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 560;
+  color: #3a2918;
+}
+.hall-panel .insight-score,
+.hall-panel .insight-score b { color: #5c2432; }
+.insight-score { margin: 0; color: #5c2432; }
+.hall-panel .hall-card .insight-kicker,
+.hall-panel .hall-card .insight-wait { color: #5c2432; }
+.hall-panel .hall-card .insight-kicker { color: #6a5342; }
+.insight-score b {
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 2rem;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.insight-score span { font-size: 0.78rem; font-weight: 750; color: #6a5342; }
+.insight-tip { margin: 0; color: #3a2918; line-height: 1.4; }
+.insight-wait { font-weight: 750; color: #5c2432; }
+.insight-kicker {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6a5342;
+}
+.insight-muted { color: #6a5342; font-size: 0.82rem; }
+.insight-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.insight-switch button {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #8d6848;
+  background: transparent;
+  color: #3a2918;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.insight-switch button:disabled { opacity: 0.4; }
+.insight-switch span { font-size: 0.78rem; font-weight: 750; color: #6a5342; }
+.insight-line { width: 100%; height: auto; display: block; }
+.insight-line line { stroke: #c4a078; stroke-width: 1; }
+.insight-line path { fill: none; stroke: #5c2432; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.insight-bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 132px;
+}
+.insight-bars div { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.insight-bars b {
+  display: block;
+  width: min(48px, 70%);
+  border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, #9a4a58, #5c2432);
+}
+.insight-bars span { font-size: 0.78rem; font-weight: 750; color: #3a2918; font-variant-numeric: tabular-nums; }
+.insight-bars em { font-style: normal; font-size: 0.68rem; font-weight: 750; color: #6a5342; text-align: center; }
+.insight-strip { display: flex; flex-wrap: wrap; gap: 3px; min-height: 14px; }
+.insight-strip i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #e7d3b4;
+  box-shadow: inset 0 0 0 1px #c4a078;
+}
+.insight-strip i.hot { background: #5c2432; box-shadow: none; }
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  width: min(100%, 280px);
+  margin-inline: auto;
+}
+.insight-grid i {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: #5c2432;
+}
+.insight-donut { width: 148px; height: 148px; display: block; margin-inline: auto; }
+.insight-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: center;
+  color: #3a2918;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.insight-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.insight-legend i { width: 10px; height: 10px; border-radius: 99px; display: block; }
+.insight-legend i.agg { background: #5c2432; }
+.insight-legend i.quiet { background: #c4a078; }
+.insight-legend i.def { background: #3f6b4f; }
+.insight-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; color: #3a2918; table-layout: fixed; }
+.insight-table td:last-child, .insight-table th:last-child { text-align: right; width: 4.5rem; }
+.insight-table caption {
+  caption-side: bottom;
+  text-align: left;
+  padding-top: 6px;
+  color: #6a5342;
+  font-size: 0.72rem;
+}
+.insight-table th, .insight-table td {
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(141, 104, 72, 0.35);
+  font-weight: 650;
+}
+.insight-table th { color: #6a5342; font-size: 0.72rem; letter-spacing: 0.03em; }
+

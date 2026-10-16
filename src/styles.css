@@ -2444,15 +2444,6 @@ body:has(.splash) {
   color: #243028;
 }
 .challenge-page .challenge-note { color: #243028; }
-.challenge-credit {
-  margin: 0;
-  font-size: 0.64rem;
-  line-height: 1.35;
-  white-space: nowrap;
-  color: #6a5342;
-}
-.challenge-page .challenge-card .challenge-credit { color: #6a5342; }
-.challenge-credit a { color: #5c2432; text-underline-offset: 2px; }
 .challenge-record {
   margin: 0;
   color: #d9cbb6;
@@ -2539,6 +2530,5 @@ body:has(.splash) {
   display: block;
   object-fit: contain;
   pointer-events: none;
-  filter: drop-shadow(0 1px 0 rgba(20, 14, 12, 0.45));
 }
 

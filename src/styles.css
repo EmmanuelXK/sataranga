@@ -1572,6 +1572,9 @@ img.cap { width: 18px; height: 18px; flex: none; object-fit: contain; display: b
     #2a1e16;
   color: #f6efe2;
   border-top: 1px solid #c4a078;
+  border-radius: 22px 22px 0 0;
+  padding-left: calc(20px + env(safe-area-inset-left, 0px));
+  padding-right: calc(20px + env(safe-area-inset-right, 0px));
   box-shadow: inset 0 1px 0 rgba(255, 228, 190, 0.16), 0 -16px 40px rgba(0, 0, 0, 0.45);
 }
 .sheet.leather .grabber { background: #c4a078; }
@@ -1933,13 +1936,18 @@ body:has(.splash) {
   background: #1c1410;
 }
 .hall {
+  --hall-gutter: 20px;
   height: 100dvh;
   min-height: 100dvh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 14px calc(6px + env(safe-area-inset-bottom));
+  padding:
+    calc(12px + env(safe-area-inset-top, 0px))
+    calc(var(--hall-gutter) + env(safe-area-inset-right, 0px))
+    calc(10px + env(safe-area-inset-bottom, 0px))
+    calc(var(--hall-gutter) + env(safe-area-inset-left, 0px));
   background-color: #1c1410;
   background-image:
     radial-gradient(90% 36% at 50% -6%, rgba(140, 96, 52, 0.28), transparent 52%),
@@ -2035,7 +2043,7 @@ body:has(.splash) {
   width: 100%;
   min-height: 56px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 18px;
   color: #1a120c;
   font: inherit;
   font-weight: 800;
@@ -2083,8 +2091,31 @@ body:has(.splash) {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 2px 4px;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+.hall-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 18px;
+  border-radius: 22px;
+  border: 1px solid #c4a078;
+  color: #3a2918;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 36%),
+    #f3e6cc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.hall-panel .hall-card p { color: #3a2918; }
+.hall-card .hall-stat b { color: #5c2432; }
+.hall-card .hall-stat span { color: #6a5342; }
+.insights-page .lobby-list li {
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(196, 160, 120, 0.75);
+  background: rgba(42, 30, 22, 0.72);
 }
 .hall-panel h2 {
   margin: 0;
@@ -2099,7 +2130,27 @@ body:has(.splash) {
 .lobby-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .lobby-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; }
 .lobby-list li > span { margin-left: 0; }
-.hall-profile .profile-card { color: #f6efe2; }
+.hall-profile .profile-card {
+  border-radius: 22px;
+  padding: 16px;
+  border: 1px solid #c4a078;
+  color: #3a2918;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 36%),
+    #f3e6cc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.hall-profile .profile-card h2,
+.hall-profile .profile-card p,
+.hall-profile .profile-card em,
+.hall-profile .profile-card .yd-copy,
+.hall-profile .profile-card .profile-next,
+.hall-profile .profile-card .login-duo,
+.hall-profile .profile-card .profile-rating em { color: #3a2918; }
+.hall-profile .profile-card .profile-rating b { color: #5c2432; }
+.hall-profile .profile-card a { color: #5c2432; }
+.hall-profile .profile-card .quiet { color: #3a2918; }
+.hall-profile .profile-card .quiet.danger { color: #8a2430; }
 
 .time-names {
   display: grid;
@@ -2225,8 +2276,8 @@ body:has(.splash) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 16px;
+  padding: 12px 16px;
+  border-radius: 22px;
   border: 1px solid #c4a078;
   background:
     linear-gradient(180deg, rgba(255, 230, 196, 0.14), transparent 46%),
@@ -2277,8 +2328,8 @@ body:has(.splash) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  border-radius: 16px;
+  padding: 14px 16px 16px;
+  border-radius: 22px;
   border: 1px solid #c4a078;
   color: #3a2918;
   background:
@@ -2362,8 +2413,8 @@ body:has(.splash) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
-  border-radius: 16px;
+  padding: 12px 14px;
+  border-radius: 22px;
   border: 1px solid #c4a078;
   color: #3a2918;
   background:
@@ -2401,6 +2452,8 @@ body:has(.splash) {
 }
 .challenge-board { display: flex; flex-direction: column; gap: 4px; }
 .challenge-board .frame { width: min(100%, 328px); margin-inline: auto; }
+.hall .ms-game .frame { border-radius: 20px; overflow: hidden; }
+.hall .ms-game .board { border-radius: 12px; overflow: hidden; }
 .challenge-clock {
   display: flex;
   align-items: center;

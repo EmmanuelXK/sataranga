@@ -312,7 +312,7 @@ export function Hall({
           {signedIn ? (
             <ProfilePane profile={profile} live={live} signedIn recent={recent} onDeleted={() => setLive(null)} />
           ) : (
-            <>
+            <article className="hall-card">
               <p>Your profile keeps the live rating, invites, and rated games. Guest play stays on this phone.</p>
               <button
                 type="button"
@@ -328,7 +328,7 @@ export function Hall({
               >
                 Sign in
               </button>
-            </>
+            </article>
           )}
         </section>
       )}
@@ -562,20 +562,22 @@ function Insights({
   const career = loadCareer();
   const phone = totals(career);
   return (
-    <section className="hall-panel" aria-labelledby="insights-title">
+    <section className="hall-panel insights-page" aria-labelledby="insights-title">
       <h2 id="insights-title">Insights</h2>
-      <p className="hall-stat">
-        <b>{live ? live.rating : "—"}</b>
-        <span>{live ? `${live.games} rated` : signedIn ? "Rating loading" : "No live rating yet"}</span>
-      </p>
-      {live && (
-        <p>
-          Blitz {live.blitz} · Rapid {live.rapid} · Bot {live.bot}
+      <article className="hall-card">
+        <p className="hall-stat">
+          <b>{live ? live.rating : "—"}</b>
+          <span>{live ? `${live.games} rated` : signedIn ? "Rating loading" : "No live rating yet"}</span>
         </p>
-      )}
-      <p>
-        On this phone: {profile.wins} wins, {profile.losses} losses, {profile.draws} draws. Bots: {phone.w}–{phone.l}–{phone.d}.
-      </p>
+        {live && (
+          <p>
+            Blitz {live.blitz} · Rapid {live.rapid} · Bot {live.bot}
+          </p>
+        )}
+        <p>
+          On this phone: {profile.wins} wins, {profile.losses} losses, {profile.draws} draws. Bots: {phone.w}–{phone.l}–{phone.d}.
+        </p>
+      </article>
       {career.recent.length > 0 && (
         <ul className="lobby-list">
           {career.recent.slice(0, 4).map((row) => (

@@ -56,29 +56,26 @@ export function DailyPuzzle() {
 
   return (
     <section className="hall-panel puzzles-page" aria-labelledby="puzzles-title">
-      <header className="puzzle-streak">
+      <div className="puzzle-head">
+        <h2 id="puzzles-title">Daily Puzzle</h2>
         <p className="puzzle-count" aria-label={`${status.streak} day streak`}>
-          <b>{status.streak}</b>
-          <span>{status.streak === 1 ? "day" : "days"}</span>
+          {status.streak} {status.streak === 1 ? "day" : "days"}
         </p>
-        <div className="puzzle-streak-copy">
-          <h2 id="puzzles-title">Daily Puzzle</h2>
-          <p>{caption(status.streak, status.solvedToday)}</p>
-        </div>
-      </header>
-      <PuzzleCard key={today} puzzle={puzzle} dateLabel={dateLine(now)} solvedToday={status.solvedToday} onSolved={onSolved} />
+      </div>
+      <p className="puzzle-brief">
+        {caption(status.streak, status.solvedToday)} · {dateLine(now)}
+      </p>
+      <PuzzleCard key={today} puzzle={puzzle} solvedToday={status.solvedToday} onSolved={onSolved} />
     </section>
   );
 }
 
 function PuzzleCard({
   puzzle,
-  dateLabel,
   solvedToday,
   onSolved,
 }: {
   puzzle: DailyPuzzle;
-  dateLabel: string;
   solvedToday: boolean;
   onSolved: () => void;
 }) {
@@ -140,9 +137,8 @@ function PuzzleCard({
   }
 
   return (
-    <article className="puzzle-card">
-      <p className="puzzle-kicker">{dateLabel}</p>
-      <div className="puzzle-heading">
+    <>
+      <div className="puzzle-title-row">
         <h3>{puzzle.title}</h3>
         {solved && <p className="puzzle-seal">Solved today</p>}
       </div>
@@ -178,6 +174,6 @@ function PuzzleCard({
           {showStart ? "Show the winning move" : "See the start"}
         </button>
       )}
-    </article>
+    </>
   );
 }

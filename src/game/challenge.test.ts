@@ -4,11 +4,18 @@ import { legalMoves, startPosition, type Piece } from "./engine.ts";
 import {
   applyChallenge,
   challengeAttacks,
+  challengeBookChoices,
+  challengeBookMove,
   challengeInCheck,
   challengeLegal,
   challengeOutcome,
+  challengePaceMs,
   challengeStart,
+  challengeThinkBudget,
   CHALLENGE_MOVE_MS,
+  CHALLENGE_RECORD_KEY,
+  CHALLENGE_THINK_MAX_MS,
+  CHALLENGE_TIME_KEY,
   findKing,
   kingSafety,
   lastChallengeSearch,
@@ -290,6 +297,42 @@ test("bullet search returns a legal move inside the clock", () => {
   const info = lastChallengeSearch();
   assert.ok(info.depth >= 2, `depth ${info.depth} in ${info.ms}ms over ${info.nodes} nodes`);
   assert.ok(info.ms <= 500, `search reported ${info.ms}ms`);
+});
+
+test("the book shelters the Raja against common chess first moves", () => {
+  for (const first of ["e2e4", "d2d4", "c2c4", "g1f3"]) {
+    const state = play(challengeStart(), first.slice(0, 2), first.slice(2));
+    const choices = challengeBookChoices(state);
+    assert.ok(choices.length >= 2, first);
+    for (const move of choices) {
+      assert.notEqual(move.piece, "K", first);
+      assert.equal(findKing(applyChallenge(state, move).board, "b"), at("d8"));
+    }
+  }
+  const opened = play(challengeStart(), "e2", "e4");
+  const seen = new Set<string>();
+  for (let i = 0; i < 24; i++) {
+    const move = challengeBookMove(opened);
+    assert.ok(move);
+    seen.add(`${move.from}-${move.to}`);
+  }
+  assert.ok(seen.size >= 2, "book replies vary");
+});
+
+test("think budget grows in check and never exceeds a second", () => {
+  const quiet = play(challengeStart(), "e2", "e4");
+  const checked = blank();
+  put(checked, "e8", "b", "K");
+  put(checked, "e4", "w", "Q");
+  put(checked, "h1", "w", "K");
+  const sharp = makeChallenge(checked, "b", MIXED);
+  assert.equal(challengeInCheck(sharp), true);
+  assert.equal(challengeThinkBudget(sharp), CHALLENGE_THINK_MAX_MS);
+  assert.ok(challengeThinkBudget(quiet) < challengeThinkBudget(sharp));
+  assert.ok(challengeThinkBudget(quiet) <= CHALLENGE_THINK_MAX_MS);
+  assert.equal(challengePaceMs("bullet"), 60_000);
+  assert.equal(challengePaceMs("blitz"), 180_000);
+  assert.notEqual(CHALLENGE_TIME_KEY, CHALLENGE_RECORD_KEY);
 });
 
 test("classic piece values are unchanged by a mixed import", () => {

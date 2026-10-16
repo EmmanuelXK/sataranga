@@ -54,11 +54,23 @@ export interface SearchInfo {
   ms: number;
 }
 
-/** One minute for each side. The classic clocks are not used. */
+/** One minute for the human on Bullet. The classic clocks are not used. */
 export const CHALLENGE_BULLET_MS = 60_000;
-/** Soft cap so a move stays inside a bullet game. Depth 1 always finishes. */
+/** Three minutes for the human on Blitz. */
+export const CHALLENGE_BLITZ_MS = 180_000;
+/** Quiet search cap used when a caller does not pass its own budget. */
 export const CHALLENGE_MOVE_MS = 200;
-export const CHALLENGE_MAX_DEPTH = 5;
+/** The bot has no clock. A move may think up to about a second, then it must move. */
+export const CHALLENGE_THINK_MAX_MS = 1000;
+export const CHALLENGE_MAX_DEPTH = 7;
+/** Remembers Bullet or Blitz. The win/loss record key is left alone. */
+export const CHALLENGE_TIME_KEY = "sataranga-challenge-time-v1";
+
+export type ChallengePace = "bullet" | "blitz";
+
+export function challengePaceMs(pace: ChallengePace): number {
+  return pace === "blitz" ? CHALLENGE_BLITZ_MS : CHALLENGE_BULLET_MS;
+}
 
 const CHESS_PROMO: CType[] = ["Q", "R", "B", "N"];
 const ORTH: ReadonlyArray<readonly [number, number]> = [
@@ -543,6 +555,57 @@ function lineExposure(state: ChallengeState, king: number, color: Color): number
   return danger;
 }
 
+/** Enemy knights and sliders standing in the king's neighbourhood. */
+function zonePressure(state: ChallengeState, king: number, color: Color): number {
+  const opp = other(color);
+  const kf = fileOf(king);
+  const kr = rankOf(king);
+  let near = 0;
+  for (let df = -2; df <= 2; df++) {
+    for (let dr = -2; dr <= 2; dr++) {
+      if (df === 0 && dr === 0) continue;
+      const f = kf + df;
+      const r = kr + dr;
+      if (!onBoard(f, r)) continue;
+      const piece = state.board[r * 8 + f];
+      if (!piece || piece.color !== opp) continue;
+      if (piece.type === "Q" || piece.type === "R" || piece.type === "B" || piece.type === "N" || piece.type === "A") near++;
+    }
+  }
+  return near * 16;
+}
+
+/** Enemy pawns advanced on the files beside the king. */
+function pawnStorm(state: ChallengeState, king: number, color: Color): number {
+  const opp = other(color);
+  const kf = fileOf(king);
+  let storm = 0;
+  for (let i = 0; i < 64; i++) {
+    const piece = state.board[i];
+    if (!piece || piece.color !== opp || piece.type !== "P") continue;
+    if (Math.abs(fileOf(i) - kf) > 2) continue;
+    const advanced = color === "b" ? rankOf(i) - 1 : 6 - rankOf(i);
+    if (advanced >= 3) storm += 14 * (advanced - 2);
+  }
+  return storm;
+}
+
+/**
+ * A chess king that can still castle is treated as heading for that shelter.
+ * One that has given the right up and stayed in the middle is more exposed.
+ */
+function castleIntent(state: ChallengeState, color: Color): number {
+  if (state.rules[color] !== "chess") return 0;
+  const king = findKing(state.board, color);
+  if (king < 0) return 0;
+  const rights = state.castle[color];
+  const home = color === "w" ? 0 : 7;
+  const central = Math.abs(fileOf(king) - 3.5) < 2;
+  if ((rights.K || rights.Q) && rankOf(king) === home) return -28;
+  if (!rights.K && !rights.Q && central && rankOf(king) === home) return 22;
+  return 0;
+}
+
 /**
  * Higher is safer. King safety is scored ahead of small material: an open line
  * to a queen, a missing shield, or a mating net outweighs a pawn.
@@ -591,6 +654,9 @@ export function kingSafety(state: ChallengeState, color: Color): number {
   }
   if (mantri) danger -= 56;
   danger -= guards * 12;
+  danger += zonePressure(state, king, color);
+  danger += pawnStorm(state, king, color);
+  danger += castleIntent(state, color);
 
   const fromHome = color === "w" ? kr : 7 - kr;
   if (fromHome >= 2) danger += 28 * (fromHome - 1);
@@ -687,7 +753,7 @@ export function lastChallengeSearch(): SearchInfo {
   return lastInfo;
 }
 
-export function pickChallengeMove(
+export function pickLegacyChallengeMove(
   state: ChallengeState,
   opts?: { ms?: number; nodes?: number; maxDepth?: number; noise?: number },
 ): CMove | null {
@@ -743,6 +809,308 @@ export function pickChallengeMove(
   return best;
 }
 
+/** Shelter-first SATARANGA replies to the usual chess first moves. */
+const BOOK: Record<string, readonly string[]> = {
+  e2e4: ["e7e6", "d7d6", "c7c6"],
+  d2d4: ["d7d6", "e7e6", "c7c6"],
+  c2c4: ["c7c6", "e7e6", "d7d6"],
+  g1f3: ["e7e6", "d7d6", "g8f6"],
+  "e2e4 e7e6 d2d4": ["d7d6", "c7c6", "b8c6"],
+  "e2e4 e7e6 g1f3": ["d7d6", "g8f6", "c7c6"],
+  "e2e4 e7e6 b1c3": ["d7d6", "g8f6", "c7c6"],
+  "e2e4 d7d6 d2d4": ["e7e6", "c7c6", "g8f6"],
+  "e2e4 d7d6 g1f3": ["e7e6", "c7c6", "b8c6"],
+  "e2e4 c7c6 d2d4": ["d7d6", "e7e6", "g8f6"],
+  "e2e4 c7c6 g1f3": ["d7d6", "e7e6", "b8c6"],
+  "d2d4 d7d6 e2e4": ["e7e6", "c7c6", "g8f6"],
+  "d2d4 d7d6 c2c4": ["e7e6", "c7c6", "b8c6"],
+  "d2d4 d7d6 g1f3": ["e7e6", "c7c6", "g8f6"],
+  "d2d4 e7e6 c2c4": ["d7d6", "c7c6", "b8c6"],
+  "d2d4 e7e6 e2e4": ["d7d6", "c7c6", "g8f6"],
+  "c2c4 c7c6 d2d4": ["d7d6", "e7e6", "b8c6"],
+  "c2c4 c7c6 g1f3": ["d7d6", "e7e6", "g8f6"],
+  "c2c4 e7e6 d2d4": ["d7d6", "c7c6", "b8c6"],
+  "g1f3 e7e6 e2e4": ["d7d6", "c7c6", "b8c6"],
+  "g1f3 e7e6 d2d4": ["d7d6", "c7c6", "g8f6"],
+  "g1f3 d7d6 d2d4": ["e7e6", "c7c6", "b8c6"],
+  "g1f3 d7d6 e2e4": ["e7e6", "c7c6", "g8f6"],
+  "g1f3 g8f6 e2e4": ["e7e6", "d7d6", "c7c6"],
+  "g1f3 g8f6 d2d4": ["d7d6", "e7e6", "c7c6"],
+  "e2e4 e7e6 d2d4 d7d6": ["g8f6", "b8c6", "c7c6"],
+  "d2d4 d7d6 e2e4 e7e6": ["g8f6", "c7c6", "b8c6"],
+  "c2c4 c7c6 d2d4 d7d6": ["e7e6", "g8f6", "b8c6"],
+  "g1f3 g8f6 e2e4 e7e6": ["d7d6", "c7c6", "b8c6"],
+};
+
+function bookKey(state: ChallengeState): string {
+  return state.moves.map((move) => coord(move.from) + coord(move.to)).join(" ");
+}
+
+/** Legal book replies for this position. Empty when the line is not in the book. */
+export function challengeBookChoices(state: ChallengeState): CMove[] {
+  if (state.turn !== "b" || state.rules.b !== "sataranga" || state.rules.w !== "chess") return [];
+  if (state.moves.length > 8) return [];
+  const listed = BOOK[bookKey(state)];
+  if (!listed) return [];
+  const legal = challengeLegal(state);
+  const found: CMove[] = [];
+  for (const label of listed) {
+    const move = legal.find((item) => coord(item.from) + coord(item.to) === label && !item.promotion);
+    if (move) found.push(move);
+  }
+  return found;
+}
+
+export function challengeBookMove(state: ChallengeState): CMove | null {
+  const choices = challengeBookChoices(state);
+  if (!choices.length) return null;
+  return choices[Math.floor(Math.random() * choices.length)] ?? null;
+}
+
+/** More time in check or when the king is under pressure. Never above one second. */
+export function challengeThinkBudget(state: ChallengeState): number {
+  if (challengeInCheck(state)) return CHALLENGE_THINK_MAX_MS;
+  const safety = kingSafety(state, state.turn);
+  if (safety < 20) return 900;
+  if (safety < 55) return 650;
+  return 320;
+}
+
+const TT_EXACT = 0;
+const TT_LOWER = 1;
+const TT_UPPER = 2;
+
+type TTEntry = { depth: number; score: number; flag: number; from: number; to: number; promo: CType | null };
+
+function sameMove(a: CMove | null | undefined, b: CMove): boolean {
+  return !!a && a.from === b.from && a.to === b.to && a.promotion === b.promotion;
+}
+
+function toTT(score: number, ply: number): number {
+  if (score > 80000) return score + ply;
+  if (score < -80000) return score - ply;
+  return score;
+}
+
+function fromTT(score: number, ply: number): number {
+  if (score > 80000) return score - ply;
+  if (score < -80000) return score + ply;
+  return score;
+}
+
+function rankThink(move: CMove, tt: CMove | null, ply: number, killers: Array<[CMove | null, CMove | null]>, history: Int32Array): number {
+  if (sameMove(tt, move)) return 2_000_000;
+  if (move.captured) return 1_000_000 + valueOf(move.captured) * 16 - valueOf(move.piece);
+  if (move.promotion) return 800_000 + valueOf(move.promotion);
+  const pair = killers[ply];
+  if (pair && (sameMove(pair[0], move) || sameMove(pair[1], move))) return 700_000;
+  return history[move.from * 64 + move.to] ?? 0;
+}
+
+function sortThink(moves: CMove[], tt: CMove | null, ply: number, killers: Array<[CMove | null, CMove | null]>, history: Int32Array): CMove[] {
+  return moves.slice().sort((a, b) => rankThink(b, tt, ply, killers, history) - rankThink(a, tt, ply, killers, history));
+}
+
+function rememberKiller(killers: Array<[CMove | null, CMove | null]>, ply: number, move: CMove) {
+  if (move.captured) return;
+  const pair = killers[ply] ?? [null, null];
+  if (sameMove(pair[0], move)) return;
+  killers[ply] = [move, pair[0]];
+}
+
+function nullTurn(state: ChallengeState): ChallengeState {
+  return {
+    board: state.board,
+    turn: other(state.turn),
+    rules: state.rules,
+    castle: state.castle,
+    ep: null,
+    halfmove: state.halfmove + 1,
+    moves: state.moves,
+    keys: state.keys,
+  };
+}
+
+function thinkQ(
+  state: ChallengeState,
+  alpha: number,
+  beta: number,
+  ply: number,
+  budget: Budget,
+  killers: Array<[CMove | null, CMove | null]>,
+  history: Int32Array,
+): number {
+  if (budget.n++ > budget.max || Date.now() > budget.deadline || ply > 8) return evaluate(state);
+  const moves = challengeLegal(state);
+  const end = finishOutcome(state, moves);
+  if (end.kind === "draw") return 0;
+  if (end.kind === "win") return mateScore(end.winner, state.turn, ply);
+  const checking = challengeInCheck(state);
+  if (!checking) {
+    const stand = evaluate(state);
+    if (stand >= beta) return stand;
+    if (stand > alpha) alpha = stand;
+  }
+  const considered = checking ? moves : moves.filter((move) => move.captured || move.promotion);
+  for (const move of sortThink(considered, null, ply, killers, history)) {
+    const value = -thinkQ(applyChallenge(state, move), -beta, -alpha, ply + 1, budget, killers, history);
+    if (value > alpha) alpha = value;
+    if (alpha >= beta) break;
+  }
+  return alpha;
+}
+
+function think(
+  state: ChallengeState,
+  depth: number,
+  alpha: number,
+  beta: number,
+  ply: number,
+  budget: Budget,
+  table: Map<string, TTEntry>,
+  killers: Array<[CMove | null, CMove | null]>,
+  history: Int32Array,
+): number {
+  if (budget.n++ > budget.max || Date.now() > budget.deadline) return evaluate(state);
+  const key = positionKey(state);
+  const moves = challengeLegal(state);
+  const end = finishOutcome(state, moves);
+  if (end.kind === "draw") return 0;
+  if (end.kind === "win") return mateScore(end.winner, state.turn, ply);
+  const cached = table.get(key);
+  const ttMove = cached ? moves.find((move) => move.from === cached.from && move.to === cached.to && move.promotion === cached.promo) ?? null : null;
+  if (cached && cached.depth >= depth) {
+    const score = fromTT(cached.score, ply);
+    if (cached.flag === TT_EXACT) return score;
+    if (cached.flag === TT_LOWER && score > alpha) alpha = score;
+    else if (cached.flag === TT_UPPER && score < beta) beta = score;
+    if (alpha >= beta) return score;
+  }
+  if (depth <= 0) return thinkQ(state, alpha, beta, ply, budget, killers, history);
+  const checking = challengeInCheck(state);
+  const heavy = count(state.board, "w") > 3 && count(state.board, "b") > 3;
+  if (!checking && heavy && depth >= 3 && ply > 0 && Date.now() + 8 < budget.deadline) {
+    const reduced = -think(nullTurn(state), depth - 3, -beta, -beta + 1, ply + 1, budget, table, killers, history);
+    if (reduced >= beta) return beta;
+  }
+  const extend = checking && ply < 4 ? 1 : 0;
+  const nextDepth = depth - 1 + extend;
+  let best = -Infinity;
+  let bestMove: CMove | null = null;
+  let flag = TT_UPPER;
+  const alpha0 = alpha;
+  let index = 0;
+  for (const move of sortThink(moves, ttMove, ply, killers, history)) {
+    const late = index >= 3 && depth >= 3 && !checking && !move.captured && !move.promotion && extend === 0;
+    const reduction = late ? (index >= 8 ? 2 : 1) : 0;
+    index++;
+    const value = -think(applyChallenge(state, move), nextDepth - reduction, -beta, -alpha, ply + 1, budget, table, killers, history);
+    if (value > best) {
+      best = value;
+      bestMove = move;
+    }
+    if (value > alpha) {
+      alpha = value;
+      flag = TT_EXACT;
+    }
+    if (alpha >= beta) {
+      rememberKiller(killers, ply, move);
+      history[move.from * 64 + move.to] += depth * depth;
+      flag = TT_LOWER;
+      bestMove = move;
+      break;
+    }
+  }
+  if (bestMove && table.size < 80_000) {
+    table.set(key, {
+      depth,
+      score: toTT(best === -Infinity ? evaluate(state) : best, ply),
+      flag,
+      from: bestMove.from,
+      to: bestMove.to,
+      promo: bestMove.promotion,
+    });
+  }
+  if (best === -Infinity) return evaluate(state);
+  if (flag === TT_UPPER && best <= alpha0) return best;
+  return best;
+}
+
+export function pickChallengeMove(
+  state: ChallengeState,
+  opts?: { ms?: number; nodes?: number; maxDepth?: number; noise?: number },
+): CMove | null {
+  const legal = challengeLegal(state);
+  if (!legal.length || challengeOutcome(state).kind !== "ongoing") return legal[0] ?? null;
+  if (legal.length === 1) {
+    lastInfo = { depth: 0, nodes: 0, ms: 0 };
+    return legal[0];
+  }
+  if (opts?.noise == null) {
+    const booked = challengeBookMove(state);
+    if (booked) {
+      lastInfo = { depth: 0, nodes: 0, ms: 0 };
+      return booked;
+    }
+  }
+  const ms = opts?.ms ?? CHALLENGE_MOVE_MS;
+  const started = Date.now();
+  const budget: Budget = {
+    n: 0,
+    max: opts?.nodes ?? Math.min(160_000, Math.max(40_000, ms * 120)),
+    deadline: started + ms,
+  };
+  const maxDepth = opts?.maxDepth ?? (ms >= 800 ? 7 : ms >= 500 ? 6 : CHALLENGE_MAX_DEPTH > 5 ? 5 : CHALLENGE_MAX_DEPTH);
+  const table = new Map<string, TTEntry>();
+  const killers: Array<[CMove | null, CMove | null]> = [];
+  const history = new Int32Array(4096);
+  let best = legal[0];
+  let bestScored: { move: CMove; value: number }[] = [];
+  let depthReached = 0;
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    if (depth > 1 && Date.now() >= budget.deadline) break;
+    const hint = table.get(positionKey(state));
+    const ttMove = hint ? legal.find((move) => move.from === hint.from && move.to === hint.to && move.promotion === hint.promo) ?? best : best;
+    const line = sortThink(legal, ttMove, 0, killers, history);
+    const scored: { move: CMove; value: number }[] = [];
+    let alpha = -Infinity;
+    let finished = true;
+    for (const move of line) {
+      if (depth > 1 && Date.now() >= budget.deadline && scored.length > 0) {
+        finished = false;
+        break;
+      }
+      const value = -think(applyChallenge(state, move), depth - 1, -Infinity, -alpha, 1, budget, table, killers, history);
+      scored.push({ move, value });
+      if (value > alpha) alpha = value;
+    }
+    if (scored.length === 0) break;
+    if (finished || depth === 1) {
+      depthReached = depth;
+      bestScored = scored;
+      best = scored.reduce((top, row) => (row.value > top.value ? row : top)).move;
+      table.set(positionKey(state), {
+        depth,
+        score: toTT(Math.max(...scored.map((row) => row.value)), 0),
+        flag: TT_EXACT,
+        from: best.from,
+        to: best.to,
+        promo: best.promotion,
+      });
+    }
+    if (!finished) break;
+  }
+  const elapsed = Date.now() - started;
+  lastInfo = { depth: depthReached, nodes: budget.n, ms: elapsed };
+  const noise = opts?.noise ?? 0;
+  if (noise > 0 && bestScored.length > 1) {
+    const top = Math.max(...bestScored.map((row) => row.value));
+    const pool = bestScored.filter((row) => row.value >= top - noise);
+    return pool[Math.floor(Math.random() * pool.length)]?.move ?? best;
+  }
+  return best;
+}
+
 export const CHALLENGE_RECORD_KEY = "sataranga-challenge-v1";
 
 export interface ChallengeRecord {
@@ -783,6 +1151,23 @@ export function saveChallengeResult(result: "win" | "loss" | "draw"): ChallengeR
     /* the duel still ends on screen */
   }
   return next;
+}
+
+export function loadChallengePace(): ChallengePace {
+  if (typeof localStorage === "undefined") return "bullet";
+  try {
+    return localStorage.getItem(CHALLENGE_TIME_KEY) === "blitz" ? "blitz" : "bullet";
+  } catch {
+    return "bullet";
+  }
+}
+
+export function saveChallengePace(pace: ChallengePace): void {
+  try {
+    localStorage.setItem(CHALLENGE_TIME_KEY, pace);
+  } catch {
+    /* the next visit can ask again */
+  }
 }
 
 export function pieceName(piece: CPiece): string {

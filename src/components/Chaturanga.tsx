@@ -44,6 +44,7 @@ import {
 } from "@/game/engine";
 import { playSound, setSoundEnabled, unlockAudio } from "@/game/sound";
 import { loadCareer, noteSolo, replaceCareer, resultStamp, type Career } from "@/game/career";
+import { archiveInsight, clearThinks, forgetInsight, recallThinks, rememberThinks } from "@/game/insights";
 import { loadProfile, noteBattle, replaceProfile, type Profile } from "@/game/profile";
 import { PACE_MS, TIME_CONTROL, type TimeControl } from "@/game/launch";
 import { boardTheme, BOARDS, pointInBoard, readBoard, writeBoard, type BoardId } from "@/game/boards";
@@ -289,6 +290,8 @@ export function Chaturanga({
   const timed = baseClock.w > 0 || baseClock.b > 0;
   const [clock, setClock] = useState<Record<Color, number>>(baseClock);
   const recorded = useRef("");
+  const thinks = useRef<number[]>([]);
+  const thinkMark = useRef(0);
   const resultSnap = useRef<{ profile: Profile; career: Career } | null>(null);
   const busy = useRef(false);
   const selfId = useRef(`p${Math.random().toString(36).slice(2, 12)}`);
@@ -323,10 +326,14 @@ export function Chaturanga({
       if (saved) {
         setGame(saved);
         setPly(saved.moves.length);
+        thinks.current = recallThinks(saved.moves.length);
       }
       setReady(true);
       return;
     }
+    thinks.current = [];
+    thinkMark.current = 0;
+    clearThinks();
     if (launch.kind === "solo") {
       const engine = ENGINES[launch.level].name;
       const you = loadCareer().name;
@@ -396,6 +403,21 @@ export function Chaturanga({
     resultSnap.current = { profile: loadProfile(), career: loadCareer() };
     const result = end.kind === "draw" ? "draw" : end.winner === game.human ? "win" : "loss";
     noteSolo(game.level, ENGINES[game.level].name, result);
+    archiveInsight({
+      id: stamp,
+      at: Date.now(),
+      seat: game.human,
+      result,
+      moves: game.moves.map((move, index) => ({
+        from: move.from,
+        to: move.to,
+        piece: move.piece,
+        color: move.color,
+        captured: move.captured,
+        promotion: move.promotion,
+        thinkMs: thinks.current[index] ?? -1,
+      })),
+    });
     const rated = launch.kind === "solo" && !!launch.rated;
     const head = launch.kind === "solo" ? launch.head : undefined;
     noteBattle({ result, rated: false, head });
@@ -442,6 +464,12 @@ export function Chaturanga({
     }, ms);
     return () => window.clearTimeout(id);
   }, [flight]);
+
+  useEffect(() => {
+    if (!ready || game.mode !== "solo" || end.kind !== "ongoing") return;
+    if (ply !== game.moves.length || live.turn !== game.human) return;
+    if (!thinkMark.current) thinkMark.current = performance.now();
+  }, [ready, game.mode, game.human, end.kind, ply, game.moves.length, live.turn]);
 
   const aiTurn =
     game.mode === "solo" &&
@@ -521,6 +549,13 @@ export function Chaturanga({
     }, reduce ? 0 : ms);
     setSelected(null);
     setLandSq(move.to);
+    const took =
+      game.mode === "solo" && move.color === game.human && thinkMark.current
+        ? Math.max(0, Math.round(performance.now() - thinkMark.current))
+        : -1;
+    thinkMark.current = 0;
+    thinks.current = [...thinks.current, took];
+    rememberThinks(thinks.current);
     setGame((g) => ({ ...g, moves: [...g.moves, move], resigned: null }));
     setPly((p) => p + 1);
     const bonus = launch.kind === "solo" || launch.kind === "pvp" || launch.kind === "live" ? launch.increment ?? 0 : 0;
@@ -710,6 +745,7 @@ export function Chaturanga({
   }
 
   function revertRecordedResult() {
+    if (recorded.current) forgetInsight(recorded.current);
     const snap = resultSnap.current;
     if (!snap) return;
     replaceProfile(snap.profile);
@@ -741,6 +777,9 @@ export function Chaturanga({
         const back = atPly(next, next.length);
         if (back.turn !== g.human) next = next.slice(0, -1);
       }
+      thinks.current = thinks.current.slice(0, next.length);
+      thinkMark.current = 0;
+      rememberThinks(thinks.current);
       setPly(next.length);
       return { ...g, moves: next, resigned: null };
     });
@@ -758,6 +797,9 @@ export function Chaturanga({
     setPly(0);
     recorded.current = "";
     resultSnap.current = null;
+    thinks.current = [];
+    thinkMark.current = 0;
+    clearThinks();
     setRatedLine(null);
     setClock(startClocks(launch));
     setGame((g) => ({ ...g, moves: [], resigned: null, flagged: null }));
@@ -1309,6 +1351,9 @@ export function Chaturanga({
               ["solo", "Computer"],
             ]}
             onChange={(mode) => {
+              thinks.current = [];
+              thinkMark.current = 0;
+              clearThinks();
               setGame((g) => ({
                 ...g,
                 mode,
@@ -1334,6 +1379,9 @@ export function Chaturanga({
                   ["b", "Black"],
                 ]}
                 onChange={(human) => {
+                  thinks.current = [];
+                  thinkMark.current = 0;
+                  clearThinks();
                   setGame((g) => ({ ...g, human, moves: [], resigned: null, bottom: null }));
                   setPly(0);
                 }}

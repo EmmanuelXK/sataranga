@@ -479,6 +479,11 @@ function evaluate(pos: Position): number {
   return s;
 }
 
+/** Side-to-move static evaluation. Insights reads this; the search is unchanged. */
+export function staticEval(pos: Position): number {
+  return evaluate(pos);
+}
+
 function ordered(moves: Move[]): Move[] {
   return moves.slice().sort((a, b) => {
     const av = a.captured ? MAT[a.captured] * 8 - MAT[a.piece] : 0;

@@ -6,7 +6,8 @@ import { Challenge } from "@/components/challenge";
 import { DailyPuzzle } from "@/components/puzzles";
 import { GameDesk } from "@/components/desk";
 import { ProfilePane } from "@/components/Yuddha";
-import { loadCareer, totals } from "@/game/career";
+import { loadCareer } from "@/game/career";
+import { InsightsPanel } from "@/components/insights";
 import {
   applyMove,
   inCheck,
@@ -302,7 +303,7 @@ export function Hall({
 
       {tab === "challenge" && <Challenge />}
 
-      {tab === "insights" && <Insights profile={profile} live={live} signedIn={signedIn} recent={recent} />}
+      {tab === "insights" && <InsightsPanel />}
 
       {tab === "profile" && (
         <section className="hall-panel hall-profile" aria-labelledby="profile-title">
@@ -545,62 +546,6 @@ function WatchBoard() {
         />
       </div>
     </div>
-  );
-}
-
-function Insights({
-  profile,
-  live,
-  signedIn,
-  recent,
-}: {
-  profile: Profile;
-  live: LiveRating | null;
-  signedIn: boolean;
-  recent: { id: string; title: string; detail: string; result: string; at: number }[];
-}) {
-  const career = loadCareer();
-  const phone = totals(career);
-  return (
-    <section className="hall-panel insights-page" aria-labelledby="insights-title">
-      <h2 id="insights-title">Insights</h2>
-      <article className="hall-card">
-        <p className="hall-stat">
-          <b>{live ? live.rating : "—"}</b>
-          <span>{live ? `${live.games} rated` : signedIn ? "Rating loading" : "No live rating yet"}</span>
-        </p>
-        {live && (
-          <p>
-            Blitz {live.blitz} · Rapid {live.rapid} · Bot {live.bot}
-          </p>
-        )}
-        <p>
-          On this phone: {profile.wins} wins, {profile.losses} losses, {profile.draws} draws. Bots: {phone.w}–{phone.l}–{phone.d}.
-        </p>
-      </article>
-      {career.recent.length > 0 && (
-        <ul className="lobby-list">
-          {career.recent.slice(0, 4).map((row) => (
-            <li key={`${row.at}-${row.opp}`}>
-              <strong>
-                vs {row.opp} · {row.result}
-              </strong>
-            </li>
-          ))}
-        </ul>
-      )}
-      {recent.length > 0 && (
-        <ul className="lobby-list">
-          {recent.slice(0, 3).map((row) => (
-            <li key={row.id}>
-              <strong>
-                {row.title} · {row.result}
-              </strong>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 

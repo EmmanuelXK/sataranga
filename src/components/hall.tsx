@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { clsx } from "clsx";
 import { Board } from "@/components/Chaturanga";
+import { Challenge } from "@/components/challenge";
 import { DailyPuzzle } from "@/components/puzzles";
 import { GameDesk } from "@/components/desk";
 import { ProfilePane } from "@/components/Yuddha";
@@ -75,7 +76,7 @@ export function Hall({
 }) {
   const { user, isPending } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
-  const [tab, setTab] = useState<"home" | "puzzles" | "insights" | "profile">("home");
+  const [tab, setTab] = useState<"home" | "puzzles" | "challenge" | "insights" | "profile">("home");
   const [pick, setPick] = useState<TablePick>(DEFAULT_PICK);
   const [timeOpen, setTimeOpen] = useState(false);
   const [lobbyOpen, setLobbyOpen] = useState(false);
@@ -299,6 +300,8 @@ export function Hall({
 
       {tab === "puzzles" && <DailyPuzzle />}
 
+      {tab === "challenge" && <Challenge />}
+
       {tab === "insights" && <Insights profile={profile} live={live} signedIn={signedIn} recent={recent} />}
 
       {tab === "profile" && (
@@ -336,6 +339,9 @@ export function Hall({
         </Tab>
         <Tab id="puzzles" tab={tab} setTab={setTab} label="Puzzles">
           <PuzzleIcon />
+        </Tab>
+        <Tab id="challenge" tab={tab} setTab={setTab} label="Challenge">
+          <ChallengeIcon />
         </Tab>
         <Tab id="insights" tab={tab} setTab={setTab} label="Insights">
           <InsightIcon />
@@ -603,9 +609,9 @@ function Tab({
   label,
   children,
 }: {
-  id: "home" | "puzzles" | "insights" | "profile";
+  id: "home" | "puzzles" | "challenge" | "insights" | "profile";
   tab: string;
-  setTab: (id: "home" | "puzzles" | "insights" | "profile") => void;
+  setTab: (id: "home" | "puzzles" | "challenge" | "insights" | "profile") => void;
   label: string;
   children: ReactNode;
 }) {
@@ -650,6 +656,14 @@ function HomeIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+function ChallengeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 16.5l2.2-6 2.8 2.2L12 6l3 6.7 2.8-2.2 2.2 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M5 19h14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

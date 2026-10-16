@@ -2049,25 +2049,31 @@ body:has(.splash) {
 .hall-tabs {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 2px;
   padding-top: 2px;
 }
 .hall-tabs button {
   min-height: 52px;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: #a89074;
   font: inherit;
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 750;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
+  padding: 0 1px;
+}
+.hall-tabs button span {
+  max-width: 100%;
+  line-height: 1.1;
 }
 .hall-tabs button svg { width: 22px; height: 22px; }
 .hall-tabs button.on { color: #f6efe2; }
@@ -2350,4 +2356,124 @@ body:has(.splash) {
   font-weight: 750;
 }
 .puzzle-quiet:hover { background: rgba(92, 36, 50, 0.06); }
+
+.challenge-page { gap: 6px; }
+.challenge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid #c4a078;
+  color: #3a2918;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 32%),
+    #f3e6cc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.challenge-card h2 {
+  margin: 0;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 560;
+  line-height: 1.15;
+  color: #3a2918;
+}
+.challenge-page .challenge-card p {
+  margin: 0;
+  color: #3a2918;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.challenge-note {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #e7efe4;
+  border: 1px solid #8aa58a;
+  color: #243028;
+}
+.challenge-page .challenge-note { color: #243028; }
+.challenge-record {
+  margin: 0;
+  color: #d9cbb6;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+.challenge-board { display: flex; flex-direction: column; gap: 4px; }
+.challenge-clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: #f6efe2;
+}
+.challenge-clock span {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.challenge-clock b {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.challenge-clock.on {
+  border-color: #c4a078;
+  background: linear-gradient(180deg, #8a3d4c, #5c2432 58%, #3c1420);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 210, 0.35);
+}
+.challenge-status {
+  margin: 0;
+  min-height: 1.3em;
+  color: #f6efe2;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.challenge-go {
+  flex: none;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  color: #f6efe2;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #9a4a58 0%, #5c2432 55%, #3c1420 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 210, 0.45), 0 2px 0 #140e0c;
+}
+.challenge-promo {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.challenge-promo button {
+  min-height: 68px;
+  border-radius: 12px;
+  border: 1px solid #c4a078;
+  background: #f3e6cc;
+  color: #3a2918;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+}
+.challenge-promo .chess-glyph { width: 32px; height: 32px; }
+.chess-glyph {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 1px 1px rgba(20, 14, 12, 0.35));
+}
 

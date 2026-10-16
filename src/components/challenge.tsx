@@ -197,20 +197,19 @@ export function Challenge() {
   const ranks = [7, 6, 5, 4, 3, 2, 1, 0];
   const files = [0, 1, 2, 3, 4, 5, 6, 7];
 
+  const draws = record.draws > 0 ? ` · ${record.draws} ${record.draws === 1 ? "draw" : "draws"}` : "";
+
   return (
     <section className="hall-panel challenge-page" aria-labelledby="challenge-title">
-      <article className="challenge-card">
-        <h2 id="challenge-title">Challenge: Chess vs SATARANGA</h2>
-        <p className="challenge-note">
-          You play chess — queen, bishops, castling, any promotion. The bot plays SATARANGA. One minute each. A fun asymmetric
-          duel, not a fair match, and not rated.
+      <div className="challenge-head">
+        <h2 id="challenge-title">Challenge</h2>
+        <p className="challenge-record">
+          On this device · {record.wins} {record.wins === 1 ? "win" : "wins"} · {record.losses}{" "}
+          {record.losses === 1 ? "loss" : "losses"}
+          {draws}
         </p>
-      </article>
-      <p className="challenge-record">
-        On this device · {record.wins} {record.wins === 1 ? "win" : "wins"} · {record.losses}{" "}
-        {record.losses === 1 ? "loss" : "losses"}
-        {record.draws > 0 ? ` · ${record.draws} ${record.draws === 1 ? "draw" : "draws"}` : ""}
-      </p>
+      </div>
+      <p className="challenge-brief">You play chess · Bot plays SATARANGA · 1 min · unrated</p>
       <div className="ms-game challenge-board">
         <p className={clsx("challenge-clock", live && !result && pos.turn === "b" && "on")}>
           <span>SATARANGA</span>

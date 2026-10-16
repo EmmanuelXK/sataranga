@@ -1,6 +1,6 @@
 import type { CType } from "@/game/challenge";
 
-/** White pieces from the Lichess cburnett set. See public/pieces/cburnett/CREDITS.md. */
+/** Original SATARANGA Staunton set. The chess side of Challenge only. */
 const FILE: Partial<Record<CType, string>> = {
   K: "wK",
   Q: "wQ",
@@ -13,5 +13,5 @@ const FILE: Partial<Record<CType, string>> = {
 export function ChessGlyph({ type }: { type: CType }) {
   const file = FILE[type];
   if (!file) return null;
-  return <img src={`/pieces/cburnett/${file}.svg`} alt="" className="chess-glyph" draggable={false} />;
+  return <img src={`/pieces/sataranga-staunton/${file}.svg`} alt="" className="chess-glyph" draggable={false} />;
 }

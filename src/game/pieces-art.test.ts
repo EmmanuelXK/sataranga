@@ -39,15 +39,16 @@ test("piece rasters used as fallback are 256px and smaller than the 512 sources"
   assert.equal(apple.readUInt32BE(20), 180);
 });
 
-test("challenge chess pieces are the unmodified cburnett set", () => {
-  const credits = readFileSync("public/pieces/cburnett/CREDITS.md", "utf8");
-  assert.match(credits, /Colin M\.L\. Burnett/);
-  assert.match(credits, /CC BY-SA 3\.0/);
-  assert.match(credits, /GPLv2\+/);
-  for (const file of ["wK", "wQ", "wR", "wB", "wN", "wP"]) {
-    const text = readFileSync(`public/pieces/cburnett/${file}.svg`, "utf8");
+test("challenge chess pieces are the original SATARANGA Staunton set", () => {
+  const about = readFileSync("src/routes/about.tsx", "utf8");
+  assert.match(about, /Chess pieces are original SATARANGA artwork by WOW LIFESTYLES\./);
+  assert.equal(about.includes("cburnett"), false);
+  assert.equal(about.includes("Colin M.L. Burnett"), false);
+  for (const file of ["wK", "wQ", "wR", "wB", "wN", "wP", "bK", "bQ", "bR", "bB", "bN", "bP"]) {
+    const text = readFileSync(`public/pieces/sataranga-staunton/${file}.svg`, "utf8");
     assert.ok(text.trimStart().startsWith("<svg"), file);
-    assert.match(text, /fill="#fff"/, file);
-    assert.match(text, /stroke="#000"/, file);
+    assert.match(text, /viewBox="0 0 45 45"/, file);
+    assert.match(text, /stroke="#2A2420"/, file);
   }
+  assert.throws(() => readFileSync("public/pieces/cburnett/CREDITS.md", "utf8"));
 });

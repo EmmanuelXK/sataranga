@@ -38,3 +38,16 @@ test("piece rasters used as fallback are 256px and smaller than the 512 sources"
   assert.equal(apple.readUInt32BE(16), 180);
   assert.equal(apple.readUInt32BE(20), 180);
 });
+
+test("challenge chess pieces are the unmodified cburnett set", () => {
+  const credits = readFileSync("public/pieces/cburnett/CREDITS.md", "utf8");
+  assert.match(credits, /Colin M\.L\. Burnett/);
+  assert.match(credits, /CC BY-SA 3\.0/);
+  assert.match(credits, /GPLv2\+/);
+  for (const file of ["wK", "wQ", "wR", "wB", "wN", "wP"]) {
+    const text = readFileSync(`public/pieces/cburnett/${file}.svg`, "utf8");
+    assert.ok(text.trimStart().startsWith("<svg"), file);
+    assert.match(text, /fill="#fff"/, file);
+    assert.match(text, /stroke="#000"/, file);
+  }
+});

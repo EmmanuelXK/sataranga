@@ -205,6 +205,19 @@ export function Challenge() {
           You play chess — queen, bishops, castling, any promotion. The bot plays SATARANGA. One minute each. A fun asymmetric
           duel, not a fair match, and not rated.
         </p>
+        <p className="challenge-credit">
+          <a href="https://github.com/lichess-org/lila/tree/master/public/piece/cburnett" target="_blank" rel="noreferrer">
+            Colin M.L. Burnett
+          </a>
+          , cburnett ·{" "}
+          <a href="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html" target="_blank" rel="noreferrer">
+            GPLv2+
+          </a>
+          {" · "}
+          <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">
+            CC BY-SA 3.0
+          </a>
+        </p>
       </article>
       <p className="challenge-record">
         On this device · {record.wins} {record.wins === 1 ? "win" : "wins"} · {record.losses}{" "}

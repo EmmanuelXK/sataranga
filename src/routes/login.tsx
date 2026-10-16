@@ -12,6 +12,7 @@ export const Route = createFileRoute("/login")({ component: Login });
 function Login() {
   const { isPending, user } = useCurrentUserState();
   const navigate = useNavigate();
+  const signedIn = Boolean(!isPending && user && !user.isDevFallback);
 
   useEffect(() => {
     if (isPending) return;
@@ -30,11 +31,12 @@ function Login() {
     } catch {
       /* still return to the board */
     }
-    const timer = window.setTimeout(() => {
-      void navigate({ to: "/" });
-    }, real ? 280 : 0);
-    return () => window.clearTimeout(timer);
+    // /login is a handoff, not a page. Replace it so Back cannot reopen the
+    // sign-in screen after the player is already signed in.
+    void navigate({ to: "/", replace: true });
   }, [isPending, user, navigate]);
+
+  if (signedIn) return null;
 
   return (
     <main className="shell play ms-game">

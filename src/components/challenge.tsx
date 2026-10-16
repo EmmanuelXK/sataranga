@@ -7,20 +7,23 @@ import {
   challengeInCheck,
   challengeLegal,
   challengeOutcome,
+  challengePaceMs,
   challengeStart,
-  CHALLENGE_BULLET_MS,
   findKing,
+  loadChallengePace,
   loadChallengeRecord,
   pieceName,
   pickChallengeMove,
+  saveChallengePace,
   saveChallengeResult,
+  type ChallengePace,
   type ChallengeEnd,
   type ChallengeRecord,
   type ChallengeState,
   type CMove,
   type CPiece,
 } from "@/game/challenge";
-import { coord, other, type PieceType } from "@/game/engine";
+import { coord, type PieceType } from "@/game/engine";
 
 function formatClock(ms: number): string {
   const clamped = Math.max(0, ms);
@@ -38,8 +41,10 @@ function resultKind(end: ChallengeEnd): "win" | "loss" | "draw" {
   return "draw";
 }
 
-function statusLine(live: boolean, thinking: boolean, pos: ChallengeState, result: ChallengeEnd | null): string {
-  if (!live) return "One minute each. You move first.";
+function statusLine(live: boolean, thinking: boolean, pos: ChallengeState, result: ChallengeEnd | null, pace: ChallengePace): string {
+  if (!live) {
+    return pace === "blitz" ? "Three minutes on your clock. You move first." : "One minute on your clock. You move first.";
+  }
   if (!result && thinking) return "SATARANGA is thinking.";
   if (!result) {
     if (challengeInCheck(pos)) return pos.turn === "w" ? "Check. Your king is attacked." : "Check. The Raja is attacked.";
@@ -74,7 +79,8 @@ export function Challenge() {
   const [last, setLast] = useState<CMove | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [promo, setPromo] = useState<CMove[] | null>(null);
-  const [clock, setClock] = useState({ w: CHALLENGE_BULLET_MS, b: CHALLENGE_BULLET_MS });
+  const [pace, setPace] = useState<ChallengePace>(() => loadChallengePace());
+  const [clock, setClock] = useState(() => challengePaceMs(loadChallengePace()));
   const [thinking, setThinking] = useState(false);
   const saved = useRef(false);
   const ticket = useRef(0);
@@ -94,20 +100,19 @@ export function Challenge() {
   }, [result]);
 
   useEffect(() => {
-    if (!live || result) return;
+    if (!live || result || pos.turn !== "w") return;
     let lastTick = performance.now();
     const id = window.setInterval(() => {
       const now = performance.now();
       const delta = now - lastTick;
       lastTick = now;
-      const side = posRef.current.turn;
-      const left = clockRef.current[side] - delta;
+      const left = clockRef.current - delta;
       if (left <= 0) {
-        setClock((current) => ({ ...current, [side]: 0 }));
-        setResult((current) => current ?? { kind: "win", winner: other(side), reason: "time" });
+        setClock(0);
+        setResult((current) => current ?? { kind: "win", winner: "b", reason: "time" });
         return;
       }
-      setClock((current) => ({ ...current, [side]: left }));
+      setClock(left);
     }, 100);
     return () => window.clearInterval(id);
   }, [live, result, pos.turn]);
@@ -180,6 +185,12 @@ export function Challenge() {
     setSelected(piece && piece.color === "w" ? sq : null);
   }
 
+  function choosePace(next: ChallengePace) {
+    setPace(next);
+    saveChallengePace(next);
+    if (!live || result) setClock(challengePaceMs(next));
+  }
+
   function begin() {
     ticket.current += 1;
     saved.current = false;
@@ -187,7 +198,7 @@ export function Challenge() {
     setLast(null);
     setSelected(null);
     setPromo(null);
-    setClock({ w: CHALLENGE_BULLET_MS, b: CHALLENGE_BULLET_MS });
+    setClock(challengePaceMs(pace));
     setResult(null);
     setThinking(false);
     setLive(true);
@@ -209,12 +220,31 @@ export function Challenge() {
           {draws}
         </p>
       </div>
-      <p className="challenge-brief">You play chess · Bot plays SATARANGA · 1 min · unrated</p>
+      <p className="challenge-brief">You play chess · SATARANGA bot · unrated</p>
+      <div className="challenge-paces" role="group" aria-label="Your clock">
+        <button type="button" className={clsx(pace === "bullet" && "on")} aria-pressed={pace === "bullet"} disabled={live && !result} onClick={() => choosePace("bullet")}>
+          Bullet
+        </button>
+        <button type="button" className={clsx(pace === "blitz" && "on")} aria-pressed={pace === "blitz"} disabled={live && !result} onClick={() => choosePace("blitz")}>
+          Blitz
+        </button>
+        <button type="button" className="locked" disabled aria-disabled="true" title="Premium">
+          <span className="challenge-pace-name">
+            <LockMark />
+            Rapid
+          </span>
+          <em>Premium</em>
+        </button>
+        <button type="button" className="locked" disabled aria-disabled="true" title="Premium">
+          <span className="challenge-pace-name">
+            <LockMark />
+            Classic
+          </span>
+          <em>Premium</em>
+        </button>
+      </div>
       <div className="ms-game challenge-board">
-        <p className={clsx("challenge-clock", live && !result && pos.turn === "b" && "on")}>
-          <span>SATARANGA</span>
-          <b>{formatClock(clock.b)}</b>
-        </p>
+        <p className="challenge-bot">SATARANGA BOT · no clock</p>
         <div className="frame">
           <div className="board" role="grid" aria-label="Challenge board. You play white, chess. SATARANGA plays black.">
             {ranks.map((rank) =>
@@ -258,11 +288,11 @@ export function Challenge() {
         </div>
         <p className={clsx("challenge-clock", live && !result && pos.turn === "w" && "on")}>
           <span>You · Chess</span>
-          <b>{formatClock(clock.w)}</b>
+          <b>{formatClock(clock)}</b>
         </p>
       </div>
       <p className="challenge-status" role="status">
-        {statusLine(live, thinking, pos, result)}
+        {statusLine(live, thinking, pos, result, pace)}
       </p>
       {promo && (
         <div className="challenge-promo" role="group" aria-label="Promote the pawn">
@@ -280,5 +310,14 @@ export function Challenge() {
         </button>
       )}
     </section>
+  );
+}
+
+function LockMark() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="3.2" y="7" width="9.6" height="7" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
   );
 }

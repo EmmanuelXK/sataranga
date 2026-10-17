@@ -69,6 +69,7 @@ import {
 import { P2PRoom } from "@/lib/multiplayer";
 import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user";
 import type { Launch } from "@/game/launch";
+import { BattleGate, useGateRun, type PlayLaunch } from "@/components/battle-gate";
 
 const Board3D = lazy(() => import("@/components/Board3D").then((mod) => ({ default: mod.Board3D })));
 
@@ -243,18 +244,29 @@ function coachTip(ply: number, last: Move | null, check: boolean, end: End): str
 
 export function Chaturanga({
   launch,
+  playGate = false,
   onLaunch,
   onNote,
   onHome,
   recent,
 }: {
   launch: Launch;
-  onLaunch: (next: Launch) => void;
+  playGate?: boolean;
+  onLaunch: (next: PlayLaunch) => void;
   onNote?: (result: string) => void;
   onHome?: () => void;
   recent: RecentGame[];
 }) {
   const [game, setGame] = useState<Game>(() => gameFromLaunch(launch));
+  const [gateStamp, setGateStamp] = useState<Launch | null>(null);
+  const [gateEpoch, setGateEpoch] = useState(0);
+  const [gateReplay, setGateReplay] = useState(0);
+  if (playGate && launch !== gateStamp) {
+    setGateStamp(launch);
+    setGateEpoch((n) => n + 1);
+  }
+  if (!playGate && gateStamp) setGateStamp(null);
+  const { run: gateRun, quiet: gateQuiet, skip: skipGate } = useGateRun(gateEpoch + gateReplay, "play");
   const [ply, setPly] = useState(0);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
@@ -787,6 +799,7 @@ export function Chaturanga({
 
   const resetRef = useRef<(broadcast: boolean) => void>(() => {});
   function newGame(broadcast = true) {
+    setGateReplay((n) => n + 1);
     setFlight(null);
     passAfter.current = false;
     setHanded(false);
@@ -976,7 +989,7 @@ export function Chaturanga({
       : null;
 
   return (
-    <main className="shell play ms-game">
+    <main className={clsx("shell play ms-game", gateRun && "gate-run", gateRun && gateQuiet && "gate-quiet")}>
       <div className="play-col">
       <p className="sr-only">{subtitle}</p>
 
@@ -1520,6 +1533,7 @@ export function Chaturanga({
           </button>
         </div>
       </Sheet>
+      {gateRun && <BattleGate variant="play" quiet={gateQuiet} onSkip={skipGate} />}
     </main>
   );
 }

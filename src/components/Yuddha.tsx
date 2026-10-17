@@ -16,7 +16,8 @@ import {
   WordOrnament,
 } from "@/components/manuscript";
 import { ENGINES, type Level } from "@/game/engine";
-import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
+import type { PlayLaunch } from "@/components/battle-gate";
+import { pairClocks, TIME_CONTROL, type TimeControl } from "@/game/launch";
 import { loadCareer } from "@/game/career";
 import { hydrateAccount, loadProfile, type Profile } from "@/game/profile";
 import { setSoundEnabled, soundEnabled } from "@/game/sound";
@@ -48,7 +49,7 @@ export type RecentGame = { id: string; title: string; detail: string; result: st
 const SEEN = "yuddha-seen-v1";
 const TUTORIAL = "sataranga-tutorial-v1";
 
-export function Yuddha({ onPlay, recent = [] }: { onPlay: (launch: Launch) => void; recent?: RecentGame[] }) {
+export function Yuddha({ onPlay, recent = [] }: { onPlay: (launch: PlayLaunch) => void; recent?: RecentGame[] }) {
   const { user } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
   const [welcome, setWelcome] = useState(false);
@@ -133,7 +134,7 @@ function Camp({
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
-  onPlay: (launch: Launch) => void;
+  onPlay: (launch: PlayLaunch) => void;
   enter: boolean;
   signedIn: boolean;
   recent: RecentGame[];
@@ -223,7 +224,7 @@ function PlayHome({
   onPlay,
   signedIn,
 }: {
-  onPlay: (launch: Launch) => void;
+  onPlay: (launch: PlayLaunch) => void;
   signedIn: boolean;
 }) {
   const [time, setTime] = useState<TimeControl>("blitz");
@@ -299,7 +300,7 @@ function PlayHome({
   return (
     <div className="play-stack ms-play">
       {resume?.id && (
-        <button type="button" className="resume-banner" onClick={() => onPlay({ kind: "online", gameId: resume.id! })}>
+        <button type="button" className="resume-banner" onClick={() => onPlay({ kind: "online", gameId: resume.id!, gate: false })}>
           Resume {resume.time_class === "rapid" ? "Rapid" : "Blitz"}
           {resume.invite_code ? ` · ${resume.invite_code}` : ""}
         </button>

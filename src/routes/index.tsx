@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Chaturanga } from "@/components/Chaturanga";
 import { Hall } from "@/components/hall";
 import { Splash } from "@/components/splash";
+import type { PlayLaunch } from "@/components/battle-gate";
 import type { RecentGame } from "@/components/Yuddha";
 import { ENGINES } from "@/game/engine";
 import type { Launch } from "@/game/launch";
@@ -21,16 +22,22 @@ function labelFor(launch: Launch): { title: string; detail: string } | null {
 function Home() {
   const [splash, setSplash] = useState(true);
   const [launch, setLaunch] = useState<Launch | null>(null);
+  const [playGate, setPlayGate] = useState(false);
   const [recent, setRecent] = useState<RecentGame[]>([]);
   const openId = useRef<string | null>(null);
-  const onStart = (next: Launch) => {
-    const label = labelFor(next);
+  const onStart = (next: PlayLaunch) => {
+    const { gate, ...launchOnly } = next;
+    const label = labelFor(launchOnly);
     if (label) {
       const id = `${Date.now()}`;
       openId.current = id;
       setRecent((rows) => [{ id, ...label, result: "—", at: Date.now() }, ...rows].slice(0, 8));
     }
-    setLaunch({ ...next });
+    const fresh =
+      gate !== false &&
+      (launchOnly.kind === "solo" || launchOnly.kind === "pvp" || launchOnly.kind === "online" || launchOnly.kind === "live");
+    setPlayGate(fresh);
+    setLaunch({ ...launchOnly });
   };
   const onNote = (result: string) => {
     const id = openId.current;
@@ -40,7 +47,7 @@ function Home() {
   return (
     <>
       {launch ? (
-        <Chaturanga launch={launch} onLaunch={onStart} onNote={onNote} onHome={() => setLaunch(null)} recent={recent} />
+        <Chaturanga launch={launch} playGate={playGate} onLaunch={onStart} onNote={onNote} onHome={() => setLaunch(null)} recent={recent} />
       ) : (
         <Hall onStart={onStart} recent={recent} />
       )}

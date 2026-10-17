@@ -5,7 +5,8 @@ import { Leaderboard, LorePane, ProfilePane, SettingsPane, type RecentGame } fro
 import { ENGINES, type Level } from "@/game/engine";
 import { loadCareer } from "@/game/career";
 import { hydrateAccount, loadProfile, type Profile } from "@/game/profile";
-import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
+import type { PlayLaunch } from "@/components/battle-gate";
+import { pairClocks, TIME_CONTROL, type TimeControl } from "@/game/launch";
 import {
   abortGame,
   activeGame,
@@ -60,7 +61,7 @@ export function GameDesk({
 }: {
   panel: DeskPanel | null;
   onPanel: (panel: DeskPanel | null) => void;
-  onPlay: (launch: Launch) => void;
+  onPlay: (launch: PlayLaunch) => void;
   onPractice: () => void;
   time: TimeControl;
   onTime: (time: TimeControl) => void;
@@ -215,7 +216,7 @@ function PlaySheet({
   onTime: (time: TimeControl) => void;
   focus: "online" | "bot" | "friend" | null;
   signedIn: boolean;
-  onPlay: (launch: Launch) => void;
+  onPlay: (launch: PlayLaunch) => void;
   onNeedAccount: () => void;
 }) {
   const [rated, setRated] = useState(false);
@@ -300,7 +301,7 @@ function PlaySheet({
   return (
     <div className="leather-stack">
       {resume?.id && (
-        <button type="button" className="leather-go" onClick={() => onPlay({ kind: "online", gameId: resume.id! })}>
+        <button type="button" className="leather-go" onClick={() => onPlay({ kind: "online", gameId: resume.id!, gate: false })}>
           Resume {resume.time_class === "rapid" ? "Rapid" : "Blitz"}
           {resume.invite_code ? ` · ${resume.invite_code}` : ""}
         </button>

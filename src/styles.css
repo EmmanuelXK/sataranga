@@ -2662,3 +2662,173 @@ body:has(.splash) {
 }
 .insight-table th { color: #6a5342; font-size: 0.72rem; letter-spacing: 0.03em; }
 
+/* Battle gate: transforms only, no dimming wash. */
+.battle-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  margin: 0;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.shell.play > .battle-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+.battle-gate:focus-visible { outline: 2px solid #c4a078; outline-offset: -6px; }
+.gate-rings,
+.gate-hen,
+.gate-banner { opacity: 0; pointer-events: none; }
+.gate-rings {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(150vw, 980px);
+  height: auto;
+  transform: translate(-50%, -50%);
+  animation: gate-rings 420ms cubic-bezier(0.12, 0.7, 0.2, 1) both;
+}
+.gate-hen {
+  position: absolute;
+  top: calc(22% + env(safe-area-inset-top, 0px));
+  left: 0;
+  width: min(46vw, 210px);
+  height: auto;
+  animation: gate-hen 380ms linear both;
+}
+.gate-banner {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  margin: 0;
+  padding: 8px 16px;
+  border: 1px solid #e4c98a;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #8a3034, #5c2026);
+  color: #f6efe2;
+  font-family: "Newsreader", ui-serif, Georgia, serif;
+  font-size: clamp(0.78rem, 3.4vw, 1.05rem);
+  font-weight: 560;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  animation: gate-banner 400ms cubic-bezier(0.2, 0.85, 0.2, 1) 150ms both;
+}
+.gate-run .stage > .frame {
+  transform-origin: 50% 50%;
+  animation: gate-board 500ms linear 20ms both;
+  will-change: transform;
+}
+.gate-run .stage > .player:first-child {
+  animation: gate-bar-top 260ms cubic-bezier(0.16, 0.84, 0.32, 1) 530ms both;
+  will-change: transform;
+}
+.gate-run .stage > .player:nth-child(3) {
+  animation: gate-bar-bottom 260ms cubic-bezier(0.16, 0.84, 0.32, 1) 530ms both;
+  will-change: transform;
+}
+.gate-challenge .stage { perspective: 900px; }
+.gate-challenge .stage > .frame {
+  animation: gate-flip 400ms linear 40ms both;
+}
+.gate-challenge .stage > .player:first-child,
+.gate-challenge .stage > .player:nth-child(3) {
+  animation-delay: 530ms;
+}
+.shell.play.challenge-play {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+.shell.play.challenge-play .name {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+.challenge-play .challenge-again {
+  margin: 0;
+}
+.challenge-play .strip { margin: 0; }
+.challenge-play .challenge-promo {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+}
+@keyframes gate-rings {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.28); }
+  35% { opacity: 0.92; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); }
+}
+@keyframes gate-hen {
+  0% { opacity: 0; transform: translate3d(-60%, 12%, 0) scale(0.92); }
+  14% { opacity: 1; }
+  76% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(115%, -18%, 0) scale(1.02); }
+}
+@keyframes gate-banner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  68% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.03); }
+}
+@keyframes gate-board {
+  from { transform: scale(0.32); }
+  to { transform: scale(1); }
+}
+@keyframes gate-flip {
+  0% { transform: scale(0.4) rotateY(-86deg); }
+  72% { transform: scale(1) rotateY(7deg); }
+  100% { transform: scale(1) rotateY(0deg); }
+}
+@keyframes gate-bar-top {
+  from { transform: translate3d(0, -46dvh, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes gate-bar-bottom {
+  from { transform: translate3d(0, 58dvh, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes gate-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.gate-quiet.gate-run { animation: gate-fade 180ms ease both; }
+.gate-quiet .stage > .frame,
+.gate-quiet .stage > .player,
+.battle-gate-quiet .gate-rings,
+.battle-gate-quiet .gate-hen,
+.battle-gate-quiet .gate-banner {
+  animation: none;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gate-run { animation: gate-fade 180ms ease both; }
+  .gate-run .stage > .frame,
+  .gate-run .stage > .player,
+  .gate-rings,
+  .gate-hen,
+  .gate-banner { animation: none; }
+}
+

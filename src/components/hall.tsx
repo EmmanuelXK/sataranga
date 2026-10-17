@@ -20,7 +20,8 @@ import {
   type Position,
 } from "@/game/engine";
 import { boardTheme } from "@/game/boards";
-import { pairClocks, TIME_CONTROL, type Launch, type TimeControl } from "@/game/launch";
+import type { PlayLaunch } from "@/components/battle-gate";
+import { pairClocks, TIME_CONTROL, type TimeControl } from "@/game/launch";
 import { enqueue, leaveQueue, myRating, type LiveRating } from "@/game/online";
 import { hydrateAccount, loadProfile, type Profile } from "@/game/profile";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -72,7 +73,7 @@ export function Hall({
   onStart,
   recent,
 }: {
-  onStart: (launch: Launch) => void;
+  onStart: (launch: PlayLaunch) => void;
   recent: { id: string; title: string; detail: string; result: string; at: number }[];
 }) {
   const { user, isPending } = useCurrentUserState();

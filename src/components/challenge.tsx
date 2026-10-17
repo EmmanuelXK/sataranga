@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
+import { BattleGate, useGateRun } from "@/components/battle-gate";
 import { ChessGlyph } from "@/components/challenge-pieces";
 import { PieceGlyph } from "@/components/pieces";
 import {
@@ -82,6 +83,8 @@ export function Challenge() {
   const [pace, setPace] = useState<ChallengePace>(() => loadChallengePace());
   const [clock, setClock] = useState(() => challengePaceMs(loadChallengePace()));
   const [thinking, setThinking] = useState(false);
+  const [gateToken, setGateToken] = useState(0);
+  const { run: gateRun, quiet: gateQuiet, skip: skipGate } = useGateRun(gateToken, "challenge");
   const saved = useRef(false);
   const ticket = useRef(0);
   const posRef = useRef(pos);
@@ -100,7 +103,7 @@ export function Challenge() {
   }, [result]);
 
   useEffect(() => {
-    if (!live || result || pos.turn !== "w") return;
+    if (!live || result || gateRun || pos.turn !== "w") return;
     let lastTick = performance.now();
     const id = window.setInterval(() => {
       const now = performance.now();
@@ -115,10 +118,10 @@ export function Challenge() {
       setClock(left);
     }, 100);
     return () => window.clearInterval(id);
-  }, [live, result, pos.turn]);
+  }, [live, result, gateRun, pos.turn]);
 
   useEffect(() => {
-    if (!live || result || pos.turn !== "b") return;
+    if (!live || result || gateRun || pos.turn !== "b") return;
     const current = pos;
     const mine = ++ticket.current;
     setThinking(true);
@@ -148,7 +151,7 @@ export function Challenge() {
       worker?.terminate();
       setThinking(false);
     };
-  }, [live, result, pos]);
+  }, [live, result, gateRun, pos]);
 
   const legal = useMemo(() => (live && !result && pos.turn === "w" ? challengeLegal(pos) : []), [live, result, pos]);
   const targets = useMemo(() => {
@@ -202,16 +205,49 @@ export function Challenge() {
     setResult(null);
     setThinking(false);
     setLive(true);
+    setGateToken((n) => n + 1);
   }
 
-  const interactive = live && !result && !thinking && pos.turn === "w";
-  const ranks = [7, 6, 5, 4, 3, 2, 1, 0];
-  const files = [0, 1, 2, 3, 4, 5, 6, 7];
+  function leave() {
+    ticket.current += 1;
+    setLive(false);
+    setThinking(false);
+    setResult(null);
+    setPos(challengeStart());
+    setLast(null);
+    setSelected(null);
+    setPromo(null);
+    setClock(challengePaceMs(pace));
+  }
 
+  const interactive = live && !result && !thinking && !gateRun && pos.turn === "w";
   const draws = record.draws > 0 ? ` · ${record.draws} ${record.draws === 1 ? "draw" : "draws"}` : "";
+  const board = (
+    <ChallengeGrid
+      pos={pos}
+      last={last}
+      selected={selected}
+      targets={targets}
+      checkSq={checkSq}
+      interactive={interactive && !live}
+      onSquare={onSquare}
+    />
+  );
+  const playBoard = (
+    <ChallengeGrid
+      pos={pos}
+      last={last}
+      selected={selected}
+      targets={targets}
+      checkSq={checkSq}
+      interactive={interactive}
+      onSquare={onSquare}
+    />
+  );
 
   return (
-    <section className="hall-panel challenge-page" aria-labelledby="challenge-title">
+    <>
+    <section className="hall-panel challenge-page" aria-labelledby="challenge-title" aria-hidden={live ? true : undefined}>
       <div className="challenge-head">
         <h2 id="challenge-title">Challenge</h2>
         <p className="challenge-record">
@@ -245,47 +281,7 @@ export function Challenge() {
       </div>
       <div className="ms-game challenge-board">
         <p className="challenge-bot">SATARANGA BOT · no clock</p>
-        <div className="frame">
-          <div className="board" role="grid" aria-label="Challenge board. You play white, chess. SATARANGA plays black.">
-            {ranks.map((rank) =>
-              files.map((file) => {
-                const sq = rank * 8 + file;
-                const piece = pos.board[sq];
-                const dark = (file + rank) % 2 === 0;
-                const showFile = rank === 0;
-                const showRank = file === 0;
-                return (
-                  <button
-                    key={sq}
-                    type="button"
-                    className={clsx(
-                      "sq",
-                      dark ? "sq-dark" : "sq-light",
-                      selected === sq && "sq-selected",
-                      last && (last.from === sq || last.to === sq) && "sq-last",
-                      checkSq === sq && "sq-check",
-                    )}
-                    tabIndex={interactive ? 0 : -1}
-                    aria-label={`${coord(sq)}${piece ? `, ${piece.color === "w" ? "white" : "black"} ${pieceName(piece)}` : ""}`}
-                    onClick={() => onSquare(sq)}
-                  >
-                    {showRank && <i className={clsx("coord rank", dark ? "coord-on-dark" : "coord-on-light")}>{rank + 1}</i>}
-                    {showFile && (
-                      <i className={clsx("coord file", dark ? "coord-on-dark" : "coord-on-light")}>{"abcdefgh"[file]}</i>
-                    )}
-                    {piece && (
-                      <span className="piece-wrap">
-                        <ArmyGlyph piece={piece} />
-                      </span>
-                    )}
-                    {targets.has(sq) && !piece && <i className="dot" />}
-                    {targets.has(sq) && piece && <i className="ring" />}
-                  </button>
-                );
-              }),
-            )}
-          </div>
-        </div>
+        <div className="frame">{board}</div>
         <p className={clsx("challenge-clock", live && !result && pos.turn === "w" && "on")}>
           <span>You · Chess</span>
           <b>{formatClock(clock)}</b>
@@ -306,10 +302,137 @@ export function Challenge() {
       )}
       {(!live || result) && (
         <button type="button" className="challenge-go" onClick={begin}>
-          {result ? "New duel" : "Begin the duel"}
+          Begin Battle
         </button>
       )}
     </section>
+    {live && (
+      <main className={clsx("shell play ms-game challenge-play", gateRun && "gate-run gate-challenge", gateRun && gateQuiet && "gate-quiet")}>
+        <div className="play-col">
+          <div className="layout">
+            <section className="stage">
+              <div className="player">
+                <button type="button" className="back-btn" onClick={leave} aria-label="Back to Challenge">
+                  <BackMark />
+                </button>
+                <span className="swatch seat-face swatch-b" aria-hidden="true">
+                  <b>S</b>
+                </span>
+                <div className="player-main">
+                  <div className="player-line">
+                    <span className="name">SATARANGA BOT · no clock</span>
+                  </div>
+                </div>
+              </div>
+              <div className="frame">
+                {playBoard}
+                {promo && (
+                  <div className="challenge-promo" role="group" aria-label="Promote the pawn">
+                    {promo.map((move) => (
+                      <button key={move.promotion} type="button" onClick={() => commit(move)}>
+                        <ChessGlyph type={move.promotion ?? "Q"} />
+                        <span>{move.promotion === "Q" ? "Queen" : move.promotion === "R" ? "Rook" : move.promotion === "B" ? "Bishop" : "Knight"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className={clsx("player", !result && pos.turn === "w" && "player-active")}>
+                <span className="swatch seat-face swatch-w" aria-hidden="true">
+                  <b>Y</b>
+                </span>
+                <div className="player-main">
+                  <div className="player-line">
+                    <span className="name">You · Chess</span>
+                  </div>
+                </div>
+                <span className={clsx("clk", "clk-pill", clock < 10000 && "clk-low")}>
+                  <b>{formatClock(clock)}</b>
+                </span>
+              </div>
+              <div className="strip">
+                <p className="empty-moves">{statusLine(live, thinking, pos, result, pace)}</p>
+              </div>
+              {result && (
+                <button type="button" className="challenge-go challenge-again" onClick={begin}>
+                  Begin Battle
+                </button>
+              )}
+            </section>
+          </div>
+        </div>
+        {gateRun && <BattleGate variant="challenge" quiet={gateQuiet} onSkip={skipGate} />}
+      </main>
+    )}
+    </>
+  );
+}
+
+function ChallengeGrid({
+  pos,
+  last,
+  selected,
+  targets,
+  checkSq,
+  interactive,
+  onSquare,
+}: {
+  pos: ChallengeState;
+  last: CMove | null;
+  selected: number | null;
+  targets: Set<number>;
+  checkSq: number;
+  interactive: boolean;
+  onSquare: (sq: number) => void;
+}) {
+  const ranks = [7, 6, 5, 4, 3, 2, 1, 0];
+  const files = [0, 1, 2, 3, 4, 5, 6, 7];
+  return (
+    <div className="board" role="grid" aria-label="Challenge board. You play white, chess. SATARANGA plays black.">
+      {ranks.map((rank) =>
+        files.map((file) => {
+          const sq = rank * 8 + file;
+          const piece = pos.board[sq];
+          const dark = (file + rank) % 2 === 0;
+          const showFile = rank === 0;
+          const showRank = file === 0;
+          return (
+            <button
+              key={sq}
+              type="button"
+              className={clsx(
+                "sq",
+                dark ? "sq-dark" : "sq-light",
+                selected === sq && "sq-selected",
+                last && (last.from === sq || last.to === sq) && "sq-last",
+                checkSq === sq && "sq-check",
+              )}
+              tabIndex={interactive ? 0 : -1}
+              aria-label={`${coord(sq)}${piece ? `, ${piece.color === "w" ? "white" : "black"} ${pieceName(piece)}` : ""}`}
+              onClick={() => onSquare(sq)}
+            >
+              {showRank && <i className={clsx("coord rank", dark ? "coord-on-dark" : "coord-on-light")}>{rank + 1}</i>}
+              {showFile && <i className={clsx("coord file", dark ? "coord-on-dark" : "coord-on-light")}>{"abcdefgh"[file]}</i>}
+              {piece && (
+                <span className="piece-wrap">
+                  <ArmyGlyph piece={piece} />
+                </span>
+              )}
+              {targets.has(sq) && !piece && <i className="dot" />}
+              {targets.has(sq) && piece && <i className="ring" />}
+            </button>
+          );
+        }),
+      )}
+    </div>
+  );
+}
+
+function BackMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.5 6.5 8.5 12l6 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
